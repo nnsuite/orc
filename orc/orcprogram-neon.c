@@ -161,38 +161,70 @@ orc_compiler_neon_init (OrcCompiler *compiler)
     compiler->is_64bit = TRUE;
   }
 
-  /** @todo 64bit-specific register setting */
+  if (compiler->is_64bit) {
+    /** AArch64
+     * 31 64-bit generic-purpose registers (R0-R30) and SP
+     * 32 128-bit vector registers (do not overlap multiple registers in a narrower view)
+     */
+    for(i=ORC_GP_REG_BASE;i<ORC_GP_REG_BASE+32;i++){
+      compiler->valid_regs[i] = 1;
+    }
+    for(i=ORC_VEC_REG_BASE+0;i<ORC_VEC_REG_BASE+32;i++){
+      compiler->valid_regs[i] = 1;
+    }
 
-  for(i=ORC_GP_REG_BASE;i<ORC_GP_REG_BASE+16;i++){
-    compiler->valid_regs[i] = 1;
+    compiler->valid_regs[ORC_ARM_R29] = 0;  /** FP */
+    compiler->valid_regs[ORC_ARM_R30] = 0;  /** LR */
+    compiler->valid_regs[ORC_ARM_R31] = 0;  /** SP */
+
+    /** r19 to r29 are callee-saved */
+    for(i=19;i<29;i++) {
+      compiler->save_regs[ORC_GP_REG_BASE+i] = 1;
+    }
+  } else {
+    /** AArch32
+     * 16 32-bit generic-purpose registers (R0-R15)
+     * 32 64-bit vector registers (smaller registers are packed into larger ones)
+     */
+    for(i=ORC_GP_REG_BASE;i<ORC_GP_REG_BASE+16;i++){
+      compiler->valid_regs[i] = 1;
+    }
+    for(i=ORC_VEC_REG_BASE+0;i<ORC_VEC_REG_BASE+32;i+=2){
+      compiler->valid_regs[i] = 1;
+    }
+    /* compiler->valid_regs[ORC_ARM_SB] = 0; */
+    compiler->valid_regs[ORC_ARM_IP] = 0;
+    compiler->valid_regs[ORC_ARM_SP] = 0;
+    compiler->valid_regs[ORC_ARM_LR] = 0;
+    compiler->valid_regs[ORC_ARM_PC] = 0;
+
+    for(i=4;i<12;i++) {
+      compiler->save_regs[ORC_GP_REG_BASE+i] = 1;
+    }
   }
-  for(i=ORC_VEC_REG_BASE+0;i<ORC_VEC_REG_BASE+32;i+=2){
-    compiler->valid_regs[i] = 1;
-  }
-  /* compiler->valid_regs[ORC_ARM_SB] = 0; */
-  compiler->valid_regs[ORC_ARM_IP] = 0;
-  compiler->valid_regs[ORC_ARM_SP] = 0;
-  compiler->valid_regs[ORC_ARM_LR] = 0;
-  compiler->valid_regs[ORC_ARM_PC] = 0;
-  for(i=4;i<12;i++) {
-    compiler->save_regs[ORC_GP_REG_BASE+i] = 1;
-  }
+
+  /** Both architectures have 8 callee-saved SIMD registers (v8-v15) */
   for(i=8;i<16;i++) {
     compiler->save_regs[ORC_VEC_REG_BASE+i] = 1;
   }
-  
+
   for(i=0;i<ORC_N_REGS;i++){
     compiler->alloc_regs[i] = 0;
     compiler->used_regs[i] = 0;
   }
 
   compiler->exec_reg = ORC_ARM_A1;
-  compiler->valid_regs[compiler->exec_reg] = 0;
   compiler->gp_tmpreg = ORC_ARM_A2;
+  if (compiler->is_64bit) {
+    compiler->tmpreg = ORC_VEC_REG_BASE + 0;
+    compiler->tmpreg2 = ORC_VEC_REG_BASE + 1;
+  } else {
+    compiler->tmpreg = ORC_VEC_REG_BASE + 0;
+    compiler->tmpreg2 = ORC_VEC_REG_BASE + 2;
+  }
+  compiler->valid_regs[compiler->exec_reg] = 0;
   compiler->valid_regs[compiler->gp_tmpreg] = 0;
-  compiler->tmpreg = ORC_VEC_REG_BASE + 0;
   compiler->valid_regs[compiler->tmpreg] = 0;
-  compiler->tmpreg2 = ORC_VEC_REG_BASE + 2;
   compiler->valid_regs[compiler->tmpreg2] = 0;
 
   loop_shift = 0;

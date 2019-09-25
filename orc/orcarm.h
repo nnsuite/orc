@@ -24,7 +24,23 @@ typedef enum {
   ORC_ARM_IP,
   ORC_ARM_SP,
   ORC_ARM_LR,
-  ORC_ARM_PC
+  ORC_ARM_PC,
+  ORC_ARM_R16,
+  ORC_ARM_R17,
+  ORC_ARM_R18,
+  ORC_ARM_R19,
+  ORC_ARM_R20,
+  ORC_ARM_R21,
+  ORC_ARM_R22,
+  ORC_ARM_R23,
+  ORC_ARM_R24,
+  ORC_ARM_R25,
+  ORC_ARM_R26,
+  ORC_ARM_R27,
+  ORC_ARM_R28,
+  ORC_ARM_R29,
+  ORC_ARM_R30,
+  ORC_ARM_R31
 } OrcArmRegister;
 
 typedef enum {
