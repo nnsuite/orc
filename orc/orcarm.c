@@ -417,14 +417,32 @@ orc_arm_emit_load_reg (OrcCompiler *compiler, int dest, int src1, int offset)
 {
   orc_uint32 code;
 
-  code = 0xe5900000;
-  code |= (src1&0xf) << 16;
-  code |= (dest&0xf) << 12;
-  code |= offset&0xfff;
+  if (compiler->is_64bit) {
+    /** LDR (immediate): unsigned offset variant using 64 bit registers
+     *    3                   2                   1
+     *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+     * +---------------------------------------------------------------+
+     * |1 1|1 1 1|0|0 1|0 1|         imm12         |    Rn   |    Rt   |
+     * +---------------------------------------------------------------+
+     */
+    code = 0xf9400000;
+    code |= ((offset/8)&0xfff) << 10; /** imm12 == offset/8 */
+    code |= (src1&0x1f) << 5;
+    code |= (dest&0x1f);
 
-  ORC_ASM_CODE(compiler,"  ldr %s, [%s, #%d]\n",
-      orc_arm_reg_name (dest),
-      orc_arm_reg_name (src1), offset);
+    ORC_ASM_CODE(compiler,"  ldr %s, [%s, #%d]\n",
+        orc_arm64_reg_name (dest,64),
+        orc_arm64_reg_name (src1,64), offset);
+  } else {
+    code = 0xe5900000;
+    code |= (src1&0xf) << 16;
+    code |= (dest&0xf) << 12;
+    code |= offset&0xfff;
+
+    ORC_ASM_CODE(compiler,"  ldr %s, [%s, #%d]\n",
+        orc_arm_reg_name (dest),
+        orc_arm_reg_name (src1), offset);
+  }
   orc_arm_emit (compiler, code);
 }
 
