@@ -126,6 +126,10 @@ ORC_API void orc_arm_emit_nop (OrcCompiler *compiler);
 
 ORC_API void orc_arm_flush_cache (OrcCode *code);
 
+/** AArch64 */
+ORC_API const char * orc_arm64_reg_name (int reg, int reg_bits);
+/** @todo add arm64-specific helper functions if needed */
+
 /* ALL cpus */
 /* data procesing instructions */
 /* <op>{<cond>}{s} {<Rd>}, <Rn>, #imm */
