@@ -45,7 +45,7 @@
 
 /***** arm *****/
 
-#ifdef __arm__
+#if defined (__arm__) || defined (__aarch64__)
 #if 0
 static unsigned long
 orc_profile_stamp_xscale(void)
