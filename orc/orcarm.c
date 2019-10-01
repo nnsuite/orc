@@ -65,7 +65,7 @@ orc_arm_reg_name (int reg)
 }
 
 const char *
-orc_arm64_reg_name (int reg, int reg_bits)
+orc_arm64_reg_name (int reg, OrcArm64RegBits bits)
 {
   static const char *gp_regs64[] = {
      "x0",  "x1",  "x2",  "x3",  "x4",  "x5",  "x6",  "x7",  "x8",  "x9",
@@ -84,7 +84,7 @@ orc_arm64_reg_name (int reg, int reg_bits)
     return "ERROR";
   }
 
-  return reg_bits == 64 ? gp_regs64[reg&0x1f] : gp_regs32[reg&0x1f];
+  return bits == ORC_ARM64_REG_64 ? gp_regs64[reg&0x1f] : gp_regs32[reg&0x1f];
 }
 
 void
@@ -430,9 +430,11 @@ orc_arm_emit_load_reg (OrcCompiler *compiler, int dest, int src1, int offset)
     code |= (src1&0x1f) << 5;
     code |= (dest&0x1f);
 
+    /** @todo change this function to support both register bits */
+
     ORC_ASM_CODE(compiler,"  ldr %s, [%s, #%d]\n",
-        orc_arm64_reg_name (dest,64),
-        orc_arm64_reg_name (src1,64), offset);
+        orc_arm64_reg_name (dest,ORC_ARM64_REG_64),
+        orc_arm64_reg_name (src1,ORC_ARM64_REG_64), offset);
   } else {
     code = 0xe5900000;
     code |= (src1&0xf) << 16;
