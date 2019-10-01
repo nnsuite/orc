@@ -63,6 +63,11 @@ typedef enum {
 } OrcArm64Register;
 
 typedef enum {
+  ORC_ARM64_REG_32 = 32,
+  ORC_ARM64_REG_64 = 64
+} OrcArm64RegBits;
+
+typedef enum {
   ORC_ARM_DP_AND = 0,
   ORC_ARM_DP_EOR,
   ORC_ARM_DP_SUB,
@@ -160,10 +165,6 @@ ORC_API void orc_arm_emit_rv (OrcCompiler *p, int op, OrcArmCond cond,
 ORC_API void orc_arm_emit_nop (OrcCompiler *compiler);
 
 ORC_API void orc_arm_flush_cache (OrcCode *code);
-
-/** AArch64 */
-ORC_API const char * orc_arm64_reg_name (int reg, int reg_bits);
-/** @todo add arm64-specific helper functions if needed */
 
 /* ALL cpus */
 /* data procesing instructions */
@@ -359,6 +360,11 @@ ORC_API const char * orc_arm64_reg_name (int reg, int reg_bits);
 /* reversing */
 #define orc_arm_emit_rev(p,cond,Rd,Rm)                orc_arm_emit_rv (p,0,cond,Rd,Rm)
 #define orc_arm_emit_rev16(p,cond,Rd,Rm)              orc_arm_emit_rv (p,1,cond,Rd,Rm)
+
+/** AArch64 */
+
+ORC_API const char * orc_arm64_reg_name (int reg, OrcArm64RegBits bits);
+/** @todo add arm64-specific helper functions if needed */
 
 #endif
 
