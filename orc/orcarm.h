@@ -87,6 +87,31 @@ typedef enum {
 } OrcArmDP;
 
 typedef enum {
+  /** arithmetic */
+  ORC_ARM64_DP_ADD = 0,
+  ORC_ARM64_DP_CMN, /** alias of ADDS */
+  ORC_ARM64_DP_SUB,
+  ORC_ARM64_DP_CMP /** alias of SUBS */
+} OrcArm64DP;
+
+typedef enum {
+  ORC_ARM64_TYPE_IMM = 0,
+  ORC_ARM64_TYPE_REG,
+  ORC_ARM64_TYPE_EXT
+} OrcArm64Type;
+
+typedef enum {
+  ORC_ARM64_EXTEND_UXTB,
+  ORC_ARM64_EXTEND_UXTH,
+  ORC_ARM64_EXTEND_UXTW,
+  ORC_ARM64_EXTEND_UXTX,
+  ORC_ARM64_EXTEND_SXTB,
+  ORC_ARM64_EXTEND_SXTH,
+  ORC_ARM64_EXTEND_SXTW,
+  ORC_ARM64_EXTEND_SXTX,
+} OrcArm64Extend;
+
+typedef enum {
   ORC_ARM_COND_EQ = 0,
   ORC_ARM_COND_NE,
   ORC_ARM_COND_CS,
@@ -364,6 +389,8 @@ ORC_API void orc_arm_flush_cache (OrcCode *code);
 /** AArch64 */
 
 ORC_API const char * orc_arm64_reg_name (int reg, OrcArm64RegBits bits);
+ORC_API void orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
+    OrcArm64Type type, int opt, int Rd, int Rn, int Rm, orc_uint64 val);
 /** @todo add arm64-specific helper functions if needed */
 
 #endif
