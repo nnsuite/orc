@@ -858,3 +858,161 @@ orc_arm_loadw (OrcCompiler *compiler, int dest, int src1, int offset)
   orc_arm_emit (compiler, code);
 }
 
+/** AArch64 instructions */
+
+/** data processing instructions: Arithmetic
+ *
+ * Immediate
+ *    3                   2                   1
+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |b|op |1 0 0 0 1|1 E|          imm12        |    Rn   |    Rd   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Shifted register
+ *    3                   2                   1
+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |b|op |0 1 0 1 1|sft|0|    Rm   |   imm6    |    Rn   |    Rd   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Extended register
+ *    3                   2                   1
+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |b|op |0 1 0 1 1|0 0|1|    Rm   | opt |imm3 |    Rn   |    Rd   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+#define arm64_code_arith_imm(b,op,E,imm,Rn,Rd) (0x11800000 | \
+    (((b==64)&0x1)<<31) | (((op)&0x3)<<29) | (((E)&0x1)<<22) | \
+    (((imm)&0xfff)<<10) | (((Rn)&0x1f)<<5)  | ((Rd)&0x1f))
+
+#define arm64_code_arith_reg(b,op,sft,Rm,imm,Rn,Rd) (0x0b000000 | \
+    (((b==64)&0x1)<<31) | (((op)&0x3)<<29) | (((sft)&0x3)<<22) | \
+    (((Rm)&0x1f)<<16) | (((imm)&0x3f)<<10) | (((Rn)&0x1f)<<5)  | ((Rd)&0x1f))
+
+#define arm64_code_arith_ext(b,op,Rm,opt,imm,Rn,Rd) (0x0b200000 | \
+    (((b==64)&0x1)<<31) | (((op)&0x3)<<29) | (((Rm)&0x1f)<<16) | \
+    (((opt)&0x7)<<13) | (((imm)&0x7)<<10) | (((Rn)&0x1f)<<5) | ((Rd)&0x1f))
+
+void
+orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
+    OrcArm64Type type, int opt, int Rd, int Rn, int Rm, orc_uint64 val)
+{
+  orc_uint32 code;
+  orc_uint32 imm;
+
+  int shift, extend;
+
+  static const char *insn_names[] = {
+    "add", "adds", "sub", "subs",
+  };
+  static const char *insn_alias[] = {
+    "ERROR", "cmn", "ERROR", "cmp",
+  };
+  static const char *shift_names[] = {
+    "lsl", "lsr", "asr", "ror"
+  };
+  static const char *extend_names[] = {
+    "uxtb", "uxth", "uxtw", "uxtx",
+    "sxtb", "sxth", "sxtw", "sxtx"
+  };
+
+  char operator[64];
+
+  opcode -= ORC_ARM64_DP_ADD;
+
+  if (opcode >= sizeof(insn_names)/sizeof(insn_names[0])) {
+    ORC_COMPILER_ERROR(p, "unsupported opcode %d", opcode);
+    return;
+  }
+
+  /** if a reg is not specified, set it to SP (== 0b11111) */
+  if (Rd == 0) Rd = ORC_ARM64_SP;
+  if (Rn == 0) Rn = ORC_ARM64_SP;
+
+  memset (operator, '\x00', 64);
+
+  switch (type) {
+    case ORC_ARM64_TYPE_IMM:      /** immediate */
+      /**, #imm */
+      shift = 0;
+      imm = (orc_uint32) val;
+
+      /** Support up to 24-bit immediate value, explicitly shifted left (LSL) by 0 or 12 */
+      if (val > 0xfff) {
+        if (val > 0xffffff) {
+          ORC_COMPILER_ERROR(p, "imm is out-of-range %llx", val);
+          return;
+        }
+        if (val & 0xfff) {
+          ORC_WARNING("offset is trucated %llx", val);
+        }
+        imm >>= 12;
+        shift = 1;
+      }
+
+      sprintf (operator, ", #0x%08x", imm);
+
+      code = arm64_code_arith_imm (bits, opcode, shift, imm, Rn, Rd);
+      break;
+    case ORC_ARM64_TYPE_REG:  /** shifted register */
+      /**, <Rm>, shift #amount */
+      shift = opt;
+      imm = (orc_uint32) val;
+
+      if (shift >= sizeof(shift_names)/sizeof(shift_names[0])) {
+        ORC_COMPILER_ERROR(p, "unsupported shift %d", shift);
+        return;
+      }
+
+      if (val > 0) {
+        if (val > 63) {
+          ORC_COMPILER_ERROR(p, "shift is out-of-range %llx", val);
+          return;
+        }
+
+        sprintf (operator, ", %s, %s #%u",
+            orc_arm64_reg_name (Rm, bits), shift_names[shift], imm);
+      } else
+        sprintf (operator, ", %s", orc_arm64_reg_name (Rm, bits));
+
+      code = arm64_code_arith_reg (bits, opcode, shift, Rm, imm, Rn, Rd);
+      break;
+    case ORC_ARM64_TYPE_EXT:  /** extended register */
+      /**, <Rm>, extend #amount */
+      extend = opt;
+      imm = (orc_uint32) val;
+
+      if (extend >= sizeof(extend_names)/sizeof(extend_names[0])) {
+        ORC_COMPILER_ERROR(p, "unsupported extend %d", extend);
+        return;
+      }
+
+      if (val > 0) {
+        if (val > 4) {
+          ORC_COMPILER_ERROR(p, "shift is out-of-range %llx\n", val);
+          return;
+        }
+        /** its width is determined by extend; '0bx11' ==> 64-bit reg */
+        sprintf (operator, ", %s, %s #%u",
+            orc_arm64_reg_name (Rm, extend & 0x3 ? ORC_ARM64_REG_64 : ORC_ARM64_REG_32),
+            extend_names[extend], imm);
+      } else
+        sprintf (operator, ", %s", orc_arm64_reg_name (Rm, bits));
+
+      code = arm64_code_arith_ext(bits, opcode, Rm, extend, imm, Rn, Rd);
+      break;
+    default:
+      ORC_COMPILER_ERROR(p, "unknown data processing type %d", type);
+      return;
+  }
+
+  ORC_ASM_CODE(p, "  %s %s, %s%s\n",
+      /** it's preferred to use alias names if exists */
+      (Rn == ORC_ARM64_SP || Rd == ORC_ARM64_SP) ? insn_alias[opcode] : insn_names[opcode],
+      orc_arm64_reg_name(Rd, bits), orc_arm64_reg_name(Rn, bits), operator);
+
+  orc_arm_emit (p, code);
+}
