@@ -91,7 +91,12 @@ typedef enum {
   ORC_ARM64_DP_ADD = 0,
   ORC_ARM64_DP_CMN, /** alias of ADDS */
   ORC_ARM64_DP_SUB,
-  ORC_ARM64_DP_CMP /** alias of SUBS */
+  ORC_ARM64_DP_CMP, /** alias of SUBS */
+  /** logical */
+  ORC_ARM64_DP_AND,
+  ORC_ARM64_DP_ORR,
+  ORC_ARM64_DP_EOR,
+  ORC_ARM64_DP_TST /** alias of ANDS */
 } OrcArm64DP;
 
 typedef enum {
@@ -390,6 +395,8 @@ ORC_API void orc_arm_flush_cache (OrcCode *code);
 
 ORC_API const char * orc_arm64_reg_name (int reg, OrcArm64RegBits bits);
 ORC_API void orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
+    OrcArm64Type type, int opt, int Rd, int Rn, int Rm, orc_uint64 val);
+ORC_API void orc_arm_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
     OrcArm64Type type, int opt, int Rd, int Rn, int Rm, orc_uint64 val);
 /** @todo add arm64-specific helper functions if needed */
 
