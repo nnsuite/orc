@@ -860,6 +860,8 @@ orc_arm_loadw (OrcCompiler *compiler, int dest, int src1, int offset)
 
 /** AArch64 instructions */
 
+#define ARM64_MAX_OP_LEN 64
+
 /** data processing instructions: Arithmetic
  *
  * Immediate
@@ -1003,6 +1005,214 @@ orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
         sprintf (operator, ", %s", orc_arm64_reg_name (Rm, bits));
 
       code = arm64_code_arith_ext(bits, opcode, Rm, extend, imm, Rn, Rd);
+      break;
+    default:
+      ORC_COMPILER_ERROR(p, "unknown data processing type %d", type);
+      return;
+  }
+
+  ORC_ASM_CODE(p, "  %s %s, %s%s\n",
+      /** it's preferred to use alias names if exists */
+      (Rn == ORC_ARM64_SP || Rd == ORC_ARM64_SP) ? insn_alias[opcode] : insn_names[opcode],
+      orc_arm64_reg_name(Rd, bits), orc_arm64_reg_name(Rn, bits), operator);
+
+  orc_arm_emit (p, code);
+}
+
+/** data processing instructions: Logical
+ *
+ * Immediate
+ *    3                   2                   1
+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |b|op |1 0 0 1 0 0|         imm13           |    Rn   |    Rd   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Shifted register
+ *    3                   2                   1
+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |b|op |0 1 0 1 0|sft|0|    Rm   |   imm6    |    Rn   |    Rd   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+#define arm64_code_logical_imm(b,op,imm,Rn,Rd) (0x12000000 | \
+    ((((b)==64)&0x1)<<31) | (((op)&0x3)<<29) | (((imm)&0x1fff)<<10) | \
+    (((Rn)&0x1f)<<5)  | ((Rd)&0x1f))
+
+#define arm64_code_logical_reg(b,op,sft,Rm,imm,Rn,Rd) (0x0a000000 | \
+    ((((b)==64)&0x1)<<31) | (((op)&0x3)<<29) | (((sft)&0x3)<<22) | \
+    (((Rm)&0x1f)<<16) | (((imm)&0x3f)<<10) | (((Rn)&0x1f)<<5)  | ((Rd)&0x1f))
+
+#define mask_ones(val) ((val) && (((val) + 1) & (val)) == 0)
+#define mask_shifted_ones(val) ((val) && mask_ones(((val) - 1) | (val)))
+
+#if defined(__GNUC__)
+#define count_trailing_zeros(val) __builtin_ctzll(val)
+#define count_leading_zeros(val) __builtin_clzll(val)
+#else
+static int
+count_trailing_zeros (orc_uint64 val)
+{
+  int i, count = 0;
+
+  for (i = 0; i < 64; i++) {
+    if ((val >> i) & 1)
+      break;
+    count++;
+  }
+
+  return count;
+}
+static int
+count_leading_zeros (orc_uint64 val)
+{
+  int i, count = 0;
+
+  for (i = 63; i >= 0; i--) {
+    if ((val >> i) & 1)
+      break;
+    count++;
+  }
+
+  return count;
+}
+#endif
+#define count_trailing_ones(val) count_trailing_zeros(~val)
+#define count_leading_ones(val) count_leading_zeros(~val)
+
+/**
+ * Encode a logical immediate value (code reference: LLVM)
+ * 32-bit variant: immr:imms
+ * 64-bit variant: N:immr:imms
+ */
+static orc_uint32
+encode_logical_imm (int size, orc_uint64 val)
+{
+  orc_uint64 mask;
+  orc_uint32 I, CTO, CLO;
+  orc_uint32 immr, imms, N, encoded;
+
+  if (size > 64)
+    return 0;
+
+  /**
+   * immediate values of all-zero and all-cones are not encoded.
+   * Requires at least one non-zero bit, and one zero bit.
+   */
+  if (val == 0ULL || val == ~0ULL ||
+      (size != 64 && (val >> size != 0 || val == (~0ULL >> (64 - size)))))
+    return 0;
+
+  /** decide the element size (i.e., 2, 4, 8, 16, 32 or 64 bits) */
+  do {
+    size /= 2;
+    mask = (1ULL << size) - 1;
+    if ((val & mask) != ((val >> size) & mask)) {
+      size *= 2;
+      break;
+    }
+  } while (size > 2);
+
+  /** decide the rotations to make the element be: 0^m 1^n */
+  mask = ((orc_uint64)-1ULL) >> (64 - size);
+  val &= mask;
+
+  if (mask_ones (val)) {
+    I = count_trailing_zeros (val);
+    CTO = count_trailing_ones (val >> I);
+  } else {
+    val |= ~mask;
+    if (!mask_shifted_ones (~val))
+      return 0;
+    CLO = count_leading_ones (val);
+    I = 64 - CLO;
+    CTO = CLO + count_trailing_ones (val) - (64 - size);
+  }
+
+  /** encode N:immr:imms */
+  immr = (size - I) & (size - 1);
+  imms = ~(size-1) << 1;
+  imms = (CTO-1);
+  N = ((imms >> 6) & 1) ^ 1;
+
+  encoded = (N << 12) | (immr << 6) | (imms & 0x3f);
+
+  return encoded;
+}
+
+void
+orc_arm64_emit_logical (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
+    OrcArm64Type type, int opt, int Rd, int Rn, int Rm, orc_uint64 val)
+{
+  orc_uint32 code;
+  orc_uint32 imm;
+
+  int shift;
+
+  static const char *insn_names[] = {
+    "and", "orr", "eor", "tst"
+  };
+  static const char *insn_alias[] = {
+    "ERROR", "ERROR", "ERROR", "ands"
+  };
+  static const char *shift_names[] = {
+    "lsl", "lsr", "asr", "ror"
+  };
+
+  char operator[ARM64_MAX_OP_LEN];
+
+  if (opcode >= sizeof(insn_names)/sizeof(insn_names[0])) {
+    ORC_COMPILER_ERROR(p, "unsupported opcode %d", opcode);
+    return;
+  }
+
+  /** if a reg is not specified, set it to SP (== 0b11111) */
+  if (Rd == 0) Rd = ORC_ARM64_SP;
+  if (Rn == 0) Rn = ORC_ARM64_SP;
+
+  memset (operator, '\x00', ARM64_MAX_OP_LEN);
+
+  switch (type) {
+    case ORC_ARM64_TYPE_IMM:      /** immediate */
+      /**, #imm */
+      if (val == 0) {
+        ORC_COMPILER_ERROR(p, "zero imm is not supported");
+        return;
+      }
+
+      imm = encode_logical_imm (bits, val);
+      if (!imm) {
+        ORC_COMPILER_ERROR(p, "wrong immediate value %llx", val);
+        return;
+      }
+
+      snprintf (operator, ARM64_MAX_OP_LEN - 1, ", #0x%08x", (orc_uint32) val);
+
+      code = arm64_code_logical_imm (bits, opcode, imm, Rn, Rd);
+      break;
+    case ORC_ARM64_TYPE_REG:      /** shifted register */
+      /**, <Rm>, shift #amount */
+      shift = opt;
+      imm = (orc_uint32) val;
+
+      if (shift >= sizeof(shift_names)/sizeof(shift_names[0])) {
+        ORC_COMPILER_ERROR(p, "unsupported shift %d", shift);
+        return;
+      }
+
+      if (val > 0) {
+        if (val > 63) {
+          ORC_COMPILER_ERROR(p, "shift is out-of-range %llx", val);
+          return;
+        }
+
+        snprintf (operator, ARM64_MAX_OP_LEN - 1, ", %s, %s #%u",
+            orc_arm64_reg_name (Rm, bits), shift_names[shift], imm);
+      } else
+        snprintf (operator, ARM64_MAX_OP_LEN - 1, ", %s", orc_arm64_reg_name (Rm, bits));
+
+      code = arm64_code_logical_reg (bits, opcode, shift, Rm, imm, Rn, Rd);
       break;
     default:
       ORC_COMPILER_ERROR(p, "unknown data processing type %d", type);
