@@ -89,14 +89,14 @@ typedef enum {
 typedef enum {
   /** arithmetic */
   ORC_ARM64_DP_ADD = 0,
-  ORC_ARM64_DP_CMN, /** alias of ADDS */
+  ORC_ARM64_DP_ADDS, /** alias of CMN */
   ORC_ARM64_DP_SUB,
-  ORC_ARM64_DP_CMP, /** alias of SUBS */
+  ORC_ARM64_DP_SUBS, /** alias of CMP */
   /** logical */
   ORC_ARM64_DP_AND,
   ORC_ARM64_DP_ORR,
   ORC_ARM64_DP_EOR,
-  ORC_ARM64_DP_TST, /** alias of ANDS */
+  ORC_ARM64_DP_ANDS, /** alias of TST */
   /** bitfield */
   ORC_ARM64_DP_SBFM,
   ORC_ARM64_DP_BFM,
@@ -112,14 +112,14 @@ typedef enum {
 } OrcArm64Type;
 
 typedef enum {
-  ORC_ARM64_EXTEND_UXTB,
-  ORC_ARM64_EXTEND_UXTH,
-  ORC_ARM64_EXTEND_UXTW,
-  ORC_ARM64_EXTEND_UXTX,
-  ORC_ARM64_EXTEND_SXTB,
-  ORC_ARM64_EXTEND_SXTH,
-  ORC_ARM64_EXTEND_SXTW,
-  ORC_ARM64_EXTEND_SXTX,
+  ORC_ARM64_UXTB,
+  ORC_ARM64_UXTH,
+  ORC_ARM64_UXTW,
+  ORC_ARM64_UXTX,
+  ORC_ARM64_SXTB,
+  ORC_ARM64_SXTH,
+  ORC_ARM64_SXTW,
+  ORC_ARM64_SXTX,
 } OrcArm64Extend;
 
 typedef enum {
@@ -409,6 +409,349 @@ ORC_API void orc_arm64_emit_bfm (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64D
 ORC_API void orc_arm64_emit_extr (OrcCompiler *p, OrcArm64RegBits bits,
         int Rd, int Rn, int Rm, orc_uint32 imm);
 /** @todo add arm64-specific helper functions if needed */
+
+/** Data Procesing (DP) instructions */
+
+/** ORC_ARM64_DP_ADD */
+/** ORC_ARM64_TYPE_IMM */
+#define orc_arm64_emit_add_imm(p,bits,Rd,Rn,imm) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADD,ORC_ARM64_TYPE_IMM,0,Rd,Rn,0,imm)
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_add(p,bits,Rd,Rn,Rm) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADD,ORC_ARM64_TYPE_REG,0,Rd,Rn,Rm,0)
+#define orc_arm64_emit_add_lsl(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADD,ORC_ARM64_TYPE_REG,ORC_ARM_LSL,Rd,Rn,Rm,val)
+#define orc_arm64_emit_add_asr(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADD,ORC_ARM64_TYPE_REG,ORC_ARM_ASR,Rd,Rn,Rm,val)
+#define orc_arm64_emit_add_ror(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADD,ORC_ARM64_TYPE_REG,ORC_ARM_ROR,Rd,Rn,Rm,val)
+/** ORC_ARM64_TYPE_EXT */
+#define orc_arm64_emit_add_uxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADD,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_add_uxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADD,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_add_uxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADD,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_add_uxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADD,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTX,Rd,Rn,Rm,val)
+#define orc_arm64_emit_add_sxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADD,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_add_sxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADD,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_add_sxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADD,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_add_sxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADD,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTX,Rd,Rn,Rm,val)
+
+/** ORC_ARM64_DP_ADDS */
+/** ORC_ARM64_TYPE_IMM */
+#define orc_arm64_emit_adds_imm(p,bits,Rd,Rn,imm) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_IMM,0,Rd,Rn,0,imm)
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_adds(p,bits,Rd,Rn,Rm) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_REG,0,Rd,Rn,Rm,0)
+#define orc_arm64_emit_adds_lsl(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_REG,ORC_ARM_LSL,Rd,Rn,Rm,val)
+#define orc_arm64_emit_adds_asr(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_REG,ORC_ARM_ASR,Rd,Rn,Rm,val)
+#define orc_arm64_emit_adds_ror(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_REG,ORC_ARM_ROR,Rd,Rn,Rm,val)
+/** ORC_ARM64_TYPE_EXT */
+#define orc_arm64_emit_adds_uxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_adds_uxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_adds_uxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_adds_uxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTX,Rd,Rn,Rm,val)
+#define orc_arm64_emit_adds_sxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_adds_sxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_adds_sxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_adds_sxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTX,Rd,Rn,Rm,val)
+
+/** ORC_ARM64_DP_CMN (alias of ADDS) */
+/** ORC_ARM64_TYPE_IMM */
+#define orc_arm64_emit_cmn_imm(p,bits,Rn,imm) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_IMM,0,0,Rn,0,imm)
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_cmn(p,bits,Rn,Rm) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_REG,0,0,Rn,Rm,0)
+#define orc_arm64_emit_cmn_lsl(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_REG,ORC_ARM_LSL,0,Rn,Rm,val)
+#define orc_arm64_emit_cmn_asr(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_REG,ORC_ARM_ASR,0,Rn,Rm,val)
+#define orc_arm64_emit_cmn_ror(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_REG,ORC_ARM_ROR,0,Rn,Rm,val)
+/** ORC_ARM64_TYPE_EXT */
+#define orc_arm64_emit_cmn_uxtb(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTB,0,Rn,Rm,val)
+#define orc_arm64_emit_cmn_uxth(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTH,0,Rn,Rm,val)
+#define orc_arm64_emit_cmn_uxtw(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTW,0,Rn,Rm,val)
+#define orc_arm64_emit_cmn_uxtx(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTX,0,Rn,Rm,val)
+#define orc_arm64_emit_cmn_sxtb(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTB,0,Rn,Rm,val)
+#define orc_arm64_emit_cmn_sxth(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTH,0,Rn,Rm,val)
+#define orc_arm64_emit_cmn_sxtw(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTW,0,Rn,Rm,val)
+#define orc_arm64_emit_cmn_sxtx(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_ADDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTX,0,Rn,Rm,val)
+
+/** ORC_ARM64_DP_SUB */
+/** ORC_ARM64_TYPE_IMM */
+#define orc_arm64_emit_sub_imm(p,bits,Rd,Rn,imm) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUB,ORC_ARM64_TYPE_IMM,0,Rd,Rn,0,imm)
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_sub(p,bits,Rd,Rn,Rm) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUB,ORC_ARM64_TYPE_REG,0,Rd,Rn,Rm,0)
+#define orc_arm64_emit_sub_lsl(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUB,ORC_ARM64_TYPE_REG,ORC_ARM_LSL,Rd,Rn,Rm,val)
+#define orc_arm64_emit_sub_asr(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUB,ORC_ARM64_TYPE_REG,ORC_ARM_ASR,Rd,Rn,Rm,val)
+#define orc_arm64_emit_sub_ror(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUB,ORC_ARM64_TYPE_REG,ORC_ARM_ROR,Rd,Rn,Rm,val)
+/** ORC_ARM64_TYPE_EXT */
+#define orc_arm64_emit_sub_uxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUB,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_sub_uxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUB,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_sub_uxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUB,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_sub_uxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUB,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTX,Rd,Rn,Rm,val)
+#define orc_arm64_emit_sub_sxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUB,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_sub_sxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUB,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_sub_sxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUB,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_sub_sxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUB,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTX,Rd,Rn,Rm,val)
+
+/** ORC_ARM64_DP_SUBS */
+/** ORC_ARM64_TYPE_IMM */
+#define orc_arm64_emit_subs_imm(p,bits,Rd,Rn,imm) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_IMM,0,Rd,Rn,0,imm)
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_subs(p,bits,Rd,Rn,Rm) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_REG,0,Rd,Rn,Rm,0)
+#define orc_arm64_emit_subs_lsl(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_REG,ORC_ARM_LSL,Rd,Rn,Rm,val)
+#define orc_arm64_emit_subs_asr(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_REG,ORC_ARM_ASR,Rd,Rn,Rm,val)
+#define orc_arm64_emit_subs_ror(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_REG,ORC_ARM_ROR,Rd,Rn,Rm,val)
+/** ORC_ARM64_TYPE_EXT */
+#define orc_arm64_emit_subs_uxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_subs_uxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_subs_uxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_subs_uxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTX,Rd,Rn,Rm,val)
+#define orc_arm64_emit_subs_sxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_subs_sxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_subs_sxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_subs_sxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTX,Rd,Rn,Rm,val)
+
+/** ORC_ARM64_DP_CMP (alias of SUBS) */
+/** ORC_ARM64_TYPE_IMM */
+#define orc_arm64_emit_cmp_imm(p,bits,Rn,imm) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_IMM,0,0,Rn,0,imm)
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_cmp(p,bits,Rn,Rm) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_REG,0,0,Rn,Rm,0)
+#define orc_arm64_emit_cmp_lsl(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_REG,ORC_ARM_LSL,0,Rn,Rm,val)
+#define orc_arm64_emit_cmp_asr(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_REG,ORC_ARM_ASR,0,Rn,Rm,val)
+#define orc_arm64_emit_cmp_ror(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_REG,ORC_ARM_ROR,0,Rn,Rm,val)
+/** ORC_ARM64_TYPE_EXT */
+#define orc_arm64_emit_cmp_uxtb(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTB,0,Rn,Rm,val)
+#define orc_arm64_emit_cmp_uxth(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTH,0,Rn,Rm,val)
+#define orc_arm64_emit_cmp_uxtw(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTW,0,Rn,Rm,val)
+#define orc_arm64_emit_cmp_uxtx(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTX,0,Rn,Rm,val)
+#define orc_arm64_emit_cmp_sxtb(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTB,0,Rn,Rm,val)
+#define orc_arm64_emit_cmp_sxth(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTH,0,Rn,Rm,val)
+#define orc_arm64_emit_cmp_sxtw(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTW,0,Rn,Rm,val)
+#define orc_arm64_emit_cmp_sxtx(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_am(p,bits,ORC_ARM64_DP_SUBS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTX,0,Rn,Rm,val)
+
+/** ORC_ARM64_DP_AND */
+/** ORC_ARM64_TYPE_IMM */
+#define orc_arm64_emit_and_imm(p,bits,Rd,Rn,imm) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_AND,ORC_ARM64_TYPE_IMM,0,Rd,Rn,0,imm)
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_and(p,bits,Rd,Rn,Rm) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_AND,ORC_ARM64_TYPE_REG,0,Rd,Rn,0,0)
+#define orc_arm64_emit_and_lsl(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_AND,ORC_ARM64_TYPE_REG,ORC_ARM_LSL,Rd,Rn,Rm,val)
+#define orc_arm64_emit_and_asr(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_AND,ORC_ARM64_TYPE_REG,ORC_ARM_ASR,Rd,Rn,Rm,val)
+#define orc_arm64_emit_and_ror(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_AND,ORC_ARM64_TYPE_REG,ORC_ARM_ROR,Rd,Rn,Rm,val)
+/** ORC_ARM64_TYPE_EXT */
+#define orc_arm64_emit_and_uxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_AND,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_and_uxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_AND,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_and_uxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_AND,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_and_uxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_AND,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTX,Rd,Rn,Rm,val)
+#define orc_arm64_emit_and_sxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_AND,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_and_sxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_AND,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_and_sxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_AND,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_and_sxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_AND,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTX,Rd,Rn,Rm,val)
+
+/** ORC_ARM64_DP_ORR */
+/** ORC_ARM64_TYPE_IMM */
+#define orc_arm64_emit_orr_imm(p,bits,Rd,Rn,imm) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_IMM,0,Rd,Rn,0,imm)
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_orr(p,bits,Rd,Rn,Rm) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_REG,0,Rd,Rn,Rm,0)
+#define orc_arm64_emit_orr_lsl(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_REG,ORC_ARM_LSL,Rd,Rn,Rm,val)
+#define orc_arm64_emit_orr_asr(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_REG,ORC_ARM_ASR,Rd,Rn,Rm,val)
+#define orc_arm64_emit_orr_ror(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_REG,ORC_ARM_ROR,Rd,Rn,Rm,val)
+/** ORC_ARM64_TYPE_EXT */
+#define orc_arm64_emit_orr_uxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_orr_uxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_orr_uxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_orr_uxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTX,Rd,Rn,Rm,val)
+#define orc_arm64_emit_orr_sxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_orr_sxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_orr_sxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_orr_sxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTX,Rd,Rn,Rm,val)
+
+/** ORC_ARM64_DP_EOR */
+/** ORC_ARM64_TYPE_IMM */
+#define orc_arm64_emit_eor_imm(p,bits,Rd,Rn,imm) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_EOR,ORC_ARM64_TYPE_IMM,0,Rd,Rn,0,imm)
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_eor(p,bits,Rd,Rn,Rm) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_EOR,ORC_ARM64_TYPE_REG,0,Rd,Rn,Rm,0)
+#define orc_arm64_emit_eor_lsl(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_EOR,ORC_ARM64_TYPE_REG,ORC_ARM_LSL,Rd,Rn,Rm,val)
+#define orc_arm64_emit_eor_asr(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_EOR,ORC_ARM64_TYPE_REG,ORC_ARM_ASR,Rd,Rn,Rm,val)
+#define orc_arm64_emit_eor_ror(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_EOR,ORC_ARM64_TYPE_REG,ORC_ARM_ROR,Rd,Rn,Rm,val)
+/** ORC_ARM64_TYPE_EXT */
+#define orc_arm64_emit_eor_uxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_EOR,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_eor_uxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_EOR,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_eor_uxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_EOR,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_eor_uxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_EOR,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTX,Rd,Rn,Rm,val)
+#define orc_arm64_emit_eor_sxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_EOR,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_eor_sxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_EOR,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_eor_sxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_EOR,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_eor_sxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_EOR,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTX,Rd,Rn,Rm,val)
+
+/** ORC_ARM64_DP_ANDS */
+/** ORC_ARM64_TYPE_IMM */
+#define orc_arm64_emit_ands_imm(p,bits,Rd,Rn,imm) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_IMM,0,Rd,Rn,0,imm)
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_ands(p,bits,Rd,Rn,Rm) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_REG,0,Rd,Rn,Rm,0)
+#define orc_arm64_emit_ands_lsl(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_REG,ORC_ARM_LSL,Rd,Rn,Rm,val)
+#define orc_arm64_emit_ands_asr(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_REG,ORC_ARM_ASR,Rd,Rn,Rm,val)
+#define orc_arm64_emit_ands_ror(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_REG,ORC_ARM_ROR,Rd,Rn,Rm,val)
+/** ORC_ARM64_TYPE_EXT */
+#define orc_arm64_emit_ands_uxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_ands_uxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_ands_uxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_ands_uxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTX,Rd,Rn,Rm,val)
+#define orc_arm64_emit_ands_sxtb(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTB,Rd,Rn,Rm,val)
+#define orc_arm64_emit_ands_sxth(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTH,Rd,Rn,Rm,val)
+#define orc_arm64_emit_ands_sxtw(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTW,Rd,Rn,Rm,val)
+#define orc_arm64_emit_ands_sxtx(p,bits,Rd,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTX,Rd,Rn,Rm,val)
+
+/** ORC_ARM64_DP_TST (alias of ANDS) */
+/** ORC_ARM64_TYPE_IMM */
+#define orc_arm64_emit_tst_imm(p,bits,Rn,imm) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_IMM,0,0,Rn,0,imm)
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_tst(p,bits,Rn,Rm) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_REG,0,0,Rn,Rm,0)
+#define orc_arm64_emit_tst_lsl(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_REG,ORC_ARM_LSL,0,Rn,Rm,val)
+#define orc_arm64_emit_tst_asr(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_REG,ORC_ARM_ASR,0,Rn,Rm,val)
+#define orc_arm64_emit_tst_ror(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_REG,ORC_ARM_ROR,0,Rn,Rm,val)
+/** ORC_ARM64_TYPE_EXT */
+#define orc_arm64_emit_tst_uxtb(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTB,0,Rn,Rm,val)
+#define orc_arm64_emit_tst_uxth(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTH,0,Rn,Rm,val)
+#define orc_arm64_emit_tst_uxtw(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTW,0,Rn,Rm,val)
+#define orc_arm64_emit_tst_uxtx(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_UXTX,0,Rn,Rm,val)
+#define orc_arm64_emit_tst_sxtb(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTB,0,Rn,Rm,val)
+#define orc_arm64_emit_tst_sxth(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTH,0,Rn,Rm,val)
+#define orc_arm64_emit_tst_sxtw(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTW,0,Rn,Rm,val)
+#define orc_arm64_emit_tst_sxtx(p,bits,Rn,Rm,val) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ANDS,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTX,0,Rn,Rm,val)
 
 /** ORC_ARM64_DP_LSL/ASR/ASR/ROR */
 /** ORC_ARM64_TYPE_IMM; aliases of ORC_ARM64_DP_SBFM,UBFM,EXTR */
