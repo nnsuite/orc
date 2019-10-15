@@ -942,15 +942,15 @@ orc_arm_loadw (OrcCompiler *compiler, int dest, int src1, int offset)
  */
 
 #define arm64_code_arith_imm(b,op,E,imm,Rn,Rd) (0x11800000 | \
-    (((b==64)&0x1)<<31) | (((op)&0x3)<<29) | (((E)&0x1)<<22) | \
+    ((((b)==64)&0x1)<<31) | (((op)&0x3)<<29) | (((E)&0x1)<<22) | \
     (((imm)&0xfff)<<10) | (((Rn)&0x1f)<<5)  | ((Rd)&0x1f))
 
 #define arm64_code_arith_reg(b,op,sft,Rm,imm,Rn,Rd) (0x0b000000 | \
-    (((b==64)&0x1)<<31) | (((op)&0x3)<<29) | (((sft)&0x3)<<22) | \
+    ((((b)==64)&0x1)<<31) | (((op)&0x3)<<29) | (((sft)&0x3)<<22) | \
     (((Rm)&0x1f)<<16) | (((imm)&0x3f)<<10) | (((Rn)&0x1f)<<5)  | ((Rd)&0x1f))
 
 #define arm64_code_arith_ext(b,op,Rm,opt,imm,Rn,Rd) (0x0b200000 | \
-    (((b==64)&0x1)<<31) | (((op)&0x3)<<29) | (((Rm)&0x1f)<<16) | \
+    ((((b)==64)&0x1)<<31) | (((op)&0x3)<<29) | (((Rm)&0x1f)<<16) | \
     (((opt)&0x7)<<13) | (((imm)&0x7)<<10) | (((Rn)&0x1f)<<5) | ((Rd)&0x1f))
 
 void
@@ -1197,7 +1197,7 @@ encode_logical_imm (int size, orc_uint64 val)
 }
 
 void
-orc_arm64_emit_logical (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
+orc_arm64_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
     OrcArm64Type type, int opt, int Rd, int Rn, int Rm, orc_uint64 val)
 {
   orc_uint32 code;
