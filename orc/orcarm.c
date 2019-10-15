@@ -1010,7 +1010,7 @@ orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
         shift = 1;
       }
 
-      sprintf (operator, ", #0x%08x", imm);
+      snprintf (operator, ARM64_MAX_OP_LEN, ", #0x%08x", imm);
 
       code = arm64_code_arith_imm (bits, opcode, shift, imm, Rn, Rd);
       break;
@@ -1030,10 +1030,10 @@ orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
           return;
         }
 
-        sprintf (operator, ", %s, %s #%u",
+        snprintf (operator, ARM64_MAX_OP_LEN, ", %s, %s #%u",
             orc_arm64_reg_name (Rm, bits), shift_names[shift], imm);
       } else
-        sprintf (operator, ", %s", orc_arm64_reg_name (Rm, bits));
+        snprintf (operator, ARM64_MAX_OP_LEN, ", %s", orc_arm64_reg_name (Rm, bits));
 
       code = arm64_code_arith_reg (bits, opcode, shift, Rm, imm, Rn, Rd);
       break;
@@ -1053,11 +1053,11 @@ orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
           return;
         }
         /** its width is determined by extend; '0bx11' ==> 64-bit reg */
-        sprintf (operator, ", %s, %s #%u",
+        snprintf (operator, ARM64_MAX_OP_LEN, ", %s, %s #%u",
             orc_arm64_reg_name (Rm, extend & 0x3 ? ORC_ARM64_REG_64 : ORC_ARM64_REG_32),
             extend_names[extend], imm);
       } else
-        sprintf (operator, ", %s", orc_arm64_reg_name (Rm, bits));
+        snprintf (operator, ARM64_MAX_OP_LEN, ", %s", orc_arm64_reg_name (Rm, bits));
 
       code = arm64_code_arith_ext(bits, opcode, Rm, extend, imm, Rn, Rd);
       break;
@@ -1242,7 +1242,7 @@ orc_arm64_emit_logical (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
         return;
       }
 
-      snprintf (operator, ARM64_MAX_OP_LEN - 1, ", #0x%08x", (orc_uint32) val);
+      snprintf (operator, ARM64_MAX_OP_LEN, ", #0x%08x", (orc_uint32) val);
 
       code = arm64_code_logical_imm (bits, opcode, imm, Rn, Rd);
       break;
@@ -1262,10 +1262,10 @@ orc_arm64_emit_logical (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
           return;
         }
 
-        snprintf (operator, ARM64_MAX_OP_LEN - 1, ", %s, %s #%u",
+        snprintf (operator, ARM64_MAX_OP_LEN, ", %s, %s #%u",
             orc_arm64_reg_name (Rm, bits), shift_names[shift], imm);
       } else
-        snprintf (operator, ARM64_MAX_OP_LEN - 1, ", %s", orc_arm64_reg_name (Rm, bits));
+        snprintf (operator, ARM64_MAX_OP_LEN, ", %s", orc_arm64_reg_name (Rm, bits));
 
       code = arm64_code_logical_reg (bits, opcode, shift, Rm, imm, Rn, Rd);
       break;
