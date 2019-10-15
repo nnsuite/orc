@@ -106,6 +106,11 @@ typedef enum {
 } OrcArm64DP;
 
 typedef enum {
+  ORC_ARM64_MEM_STR = 0,
+  ORC_ARM64_MEM_LDR
+} OrcArm64Mem;
+
+typedef enum {
   ORC_ARM64_TYPE_IMM = 0,
   ORC_ARM64_TYPE_REG,
   ORC_ARM64_TYPE_EXT
@@ -405,9 +410,11 @@ ORC_API void orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP
 ORC_API void orc_arm64_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
     OrcArm64Type type, int opt, int Rd, int Rn, int Rm, orc_uint64 val);
 ORC_API void orc_arm64_emit_bfm (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
-        int Rn, int Rd, orc_uint32 immr, orc_uint32 imms);
+    int Rn, int Rd, orc_uint32 immr, orc_uint32 imms);
 ORC_API void orc_arm64_emit_extr (OrcCompiler *p, OrcArm64RegBits bits,
-        int Rd, int Rn, int Rm, orc_uint32 imm);
+    int Rd, int Rn, int Rm, orc_uint32 imm);
+ORC_API void orc_arm64_emit_mem (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64Mem opcode,
+    OrcArm64Type type, int opt, int Rt, int Rn, int Rm, orc_uint64 val);
 /** @todo add arm64-specific helper functions if needed */
 
 /** ORC_ARM64_DP_LSL/ASR/ASR/ROR */
@@ -420,6 +427,49 @@ ORC_API void orc_arm64_emit_extr (OrcCompiler *p, OrcArm64RegBits bits,
   orc_arm64_emit_bfm(p,bits,ORC_ARM64_DP_ORC_ARM64_DP_SBFM,Rd,Rn,imm,0x1f)
 #define orc_arm64_emit_ror_imm(p,bits,Rd,Rn,imm) \
   orc_arm64_emit_extr(p,bits,Rd,Rn,Rn,imm)
+
+/** memory access instructions */
+
+/** ORC_ARM64_MEM_STR */
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_store_reg(p,b,Rt,Rn,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_STR,ORC_ARM64_TYPE_REG,0,Rt,Rn,0,imm)
+#define orc_arm64_emit_store_pre(p,b,Rt,Rn,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_STR,ORC_ARM64_TYPE_REG,1,Rt,Rn,0,imm)
+#define orc_arm64_emit_store_post(p,b,Rt,Rn,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_STR,ORC_ARM64_TYPE_REG,2,Rt,Rn,0,imm)
+/** ORC_ARM64_TYPE_EXT */
+#define orc_arm64_emit_store_uxtw(p,b,Rt,Rn,Rm,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_STR,ORC_ARM64_TYPE_EXT,ORC_ARM64_EXTEND_UXTW,Rt,Rn,Rm,imm)
+#define orc_arm64_emit_store_lsl(p,b,Rt,Rn,Rm,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_STR,ORC_ARM64_TYPE_EXT,ORC_ARM64_EXTEND_UXTX,Rt,Rn,Rm,imm)
+#define orc_arm64_emit_store_sxtw(p,b,Rt,Rn,Rm,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_STR,ORC_ARM64_TYPE_EXT,ORC_ARM64_EXTEND_SXTW,Rt,Rn,Rm,imm)
+#define orc_arm64_emit_store_sxtx(p,b,Rt,Rn,Rm,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_STR,ORC_ARM64_TYPE_EXT,ORC_ARM64_EXTEND_SXTX,Rt,Rn,Rm,imm)
+
+/** ORC_ARM64_MEM_LDR */
+/** ORC_ARM64_TYPE_IMM */
+#define orc_arm64_emit_load_imm(p,b,Rt,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_LDR,ORC_ARM64_TYPE_IMM,0,Rt,0,0,imm)
+#define orc_arm64_emit_load_label(p,b,Rt,label) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_LDR,ORC_ARM64_TYPE_IMM,label,Rt,0,0,0)
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_load_reg(p,b,Rt,Rn,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_LDR,ORC_ARM64_TYPE_REG,0,Rt,Rn,0,imm)
+#define orc_arm64_emit_load_pre(p,b,Rt,Rn,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_LDR,ORC_ARM64_TYPE_REG,1,Rt,Rn,0,imm)
+#define orc_arm64_emit_load_post(p,b,Rt,Rn,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_LDR,ORC_ARM64_TYPE_REG,2,Rt,Rn,0,imm)
+/** ORC_ARM64_TYPE_EXT */
+#define orc_arm64_emit_load_uxtw(p,b,Rt,Rn,Rm,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_LDR,ORC_ARM64_TYPE_EXT,ORC_ARM64_EXTEND_UXTW,Rt,Rn,Rm,imm)
+#define orc_arm64_emit_load_lsl(p,b,Rt,Rn,Rm,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_LDR,ORC_ARM64_TYPE_EXT,ORC_ARM64_EXTEND_UXTX,Rt,Rn,Rm,imm)
+#define orc_arm64_emit_load_sxtw(p,b,Rt,Rn,Rm,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_LDR,ORC_ARM64_TYPE_EXT,ORC_ARM64_EXTEND_SXTW,Rt,Rn,Rm,imm)
+#define orc_arm64_emit_load_sxtx(p,b,Rt,Rn,Rm,imm) \
+  orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_LDR,ORC_ARM64_TYPE_EXT,ORC_ARM64_EXTEND_SXTX,Rt,Rn,Rm,imm)
 
 #endif
 

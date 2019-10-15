@@ -472,34 +472,14 @@ orc_arm_emit_load_reg (OrcCompiler *compiler, int dest, int src1, int offset)
 {
   orc_uint32 code;
 
-  if (compiler->is_64bit) {
-    /** LDR (immediate): unsigned offset variant using 64 bit registers
-     *    3                   2                   1
-     *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
-     * +---------------------------------------------------------------+
-     * |1 1|1 1 1|0|0 1|0 1|         imm12         |    Rn   |    Rt   |
-     * +---------------------------------------------------------------+
-     */
-    code = 0xf9400000;
-    code |= ((offset/8)&0xfff) << 10; /** imm12 == offset/8 */
-    code |= (src1&0x1f) << 5;
-    code |= (dest&0x1f);
+  code = 0xe5900000;
+  code |= (src1&0xf) << 16;
+  code |= (dest&0xf) << 12;
+  code |= offset&0xfff;
 
-    /** @todo change this function to support both register bits */
-
-    ORC_ASM_CODE(compiler,"  ldr %s, [%s, #%d]\n",
-        orc_arm64_reg_name (dest,ORC_ARM64_REG_64),
-        orc_arm64_reg_name (src1,ORC_ARM64_REG_64), offset);
-  } else {
-    code = 0xe5900000;
-    code |= (src1&0xf) << 16;
-    code |= (dest&0xf) << 12;
-    code |= offset&0xfff;
-
-    ORC_ASM_CODE(compiler,"  ldr %s, [%s, #%d]\n",
-        orc_arm_reg_name (dest),
-        orc_arm_reg_name (src1), offset);
-  }
+  ORC_ASM_CODE(compiler,"  ldr %s, [%s, #%d]\n",
+      orc_arm_reg_name (dest),
+      orc_arm_reg_name (src1), offset);
   orc_arm_emit (compiler, code);
 }
 
@@ -1476,6 +1456,192 @@ orc_arm64_emit_extr (OrcCompiler *p, OrcArm64RegBits bits,
       orc_arm64_reg_name(Rm, bits),
       imm);
   }
+
+  orc_arm_emit (p, code);
+}
+
+/** memory access instructions
+ *
+ * Literal (LDR only)
+ *    3                   2                   1
+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |0 b|0 1 1|0|0 0|                imm19                |    Rt   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Register Signed offset (Post-/Pre-index)
+ *    3                   2                   1
+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |1 b|1 1 1|0|0 0|op |0|       imm9      |P 1|    Rn   |    Rt   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Register Unsigned offset
+ *    3                   2                   1
+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |1 b|1 1 1|0|0 1|op |         imm12         |   Rn    |    Rt   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Register Extended
+ *    3                   2                   1
+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |1 b|1 1 1|0|0 0|op |1|    Rm   | opt |S|1 0|    Rn   |    Rt   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ */
+
+#define arm64_code_mem_literal(b,imm,Rt) (0x18000000 | ((((b)==64)&0x1)<<30) | \
+    (((imm)&0x7ffff)<<5) | ((Rt)&0x1f))
+
+#define arm64_code_mem_signed(b,op,imm,P,Rn,Rt) (0xb8000400 | ((((b)==64)&0x1)<<30) | \
+    (((op)&0x3)<<22) | (((imm)&0x3f)<<12) | (((P)&0x1)<<11) | (((Rn)&0x1f)<<5) | ((Rt)&0x1f))
+
+#define arm64_code_mem_unsigned(b,op,imm,Rn,Rt) (0xb9000000 | ((((b)==64)&0x1)<<30) | \
+    (((op)&0x3)<<22) | (((imm)&0xfff)<<10) | (((Rn)&0x1f)<<5) | ((Rt)&0x1f))
+
+#define arm64_code_mem_extended(b,op,Rm,opt,S,Rn,Rt) (0xb8200800 | ((((b)==64)&0x1)<<30) | \
+    (((op)&0x3)<<22) | (((Rm)&0x1f)<<16) | (((opt)&0x7)<<13) | (((S)&0x1)<<12) | \
+    (((Rn)&0x1f)<<5) | ((Rt)&0x1f))
+
+void
+orc_arm64_emit_mem (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64Mem opcode,
+    OrcArm64Type type, int opt, int Rt, int Rn, int Rm, orc_uint64 val)
+{
+  orc_uint32 code;
+  orc_uint32 amount;
+  orc_int32 imm;
+
+  int is_signed, extend, S;
+
+  static const char *insn_names[3] = {
+    "str", "ldr"
+  };
+  static const char *extend_names[] = {
+    "ERROR", "ERROR", "uxtw", "lsl",
+    "ERROR", "ERROR", "sxtw", "sxtx"
+  };
+
+  char opt_rn[ARM64_MAX_OP_LEN];
+  char opt_rm[ARM64_MAX_OP_LEN];
+
+  if (opcode >= sizeof(insn_names)/sizeof(insn_names[0])) {
+    ORC_COMPILER_ERROR(p, "unsupported opcode %d", opcode);
+    return;
+  }
+
+  memset (opt_rn, '\x00', ARM64_MAX_OP_LEN);
+  memset (opt_rm, '\x00', ARM64_MAX_OP_LEN);
+
+  switch (type) {
+    case ORC_ARM64_TYPE_IMM:
+      if (opcode != ORC_ARM64_MEM_LDR) {
+        ORC_COMPILER_ERROR(p, "str with immediate is not permitted\n");
+        return;
+      }
+
+      imm = val/4;
+      if (imm == 0) {
+        int label = opt;
+        /** resolve the actual address diff in fixup code */
+        orc_arm_add_fixup (p, label, 2);
+        snprintf (opt_rn, ARM64_MAX_OP_LEN, ", .L%d", label);
+      } else {
+        snprintf (opt_rn, ARM64_MAX_OP_LEN, ", 0x%08x", imm);
+      }
+
+      code = arm64_code_mem_literal (bits, imm, Rt);
+      break;
+    case ORC_ARM64_TYPE_REG:
+      imm = (orc_int32) val;
+      is_signed = opt;
+
+      if (is_signed) { /** signed offset */
+        if (imm > 0xff || imm < -0xff) {
+          ORC_COMPILER_ERROR(p, "simm is out-of-range %x\n", imm);
+          return;
+        }
+
+        if (is_signed == 1) { /** pre index */
+          snprintf (opt_rn, ARM64_MAX_OP_LEN, ", [%s", orc_arm64_reg_name(Rn, bits));
+          snprintf (opt_rm, ARM64_MAX_OP_LEN, ", #%d]!", imm);
+
+          code = arm64_code_mem_signed (bits, opcode, imm, 1, Rn, Rt);
+        } else {              /** post index */
+          snprintf (opt_rn, ARM64_MAX_OP_LEN, ", [%s]", orc_arm64_reg_name(Rn, bits));
+          snprintf (opt_rm, ARM64_MAX_OP_LEN, ", #%d", imm);
+
+          code = arm64_code_mem_signed (bits, opcode, imm, 0, Rn, Rt);
+        }
+      } else {  /** unsigned offset */
+        if (imm != 0) {
+          snprintf (opt_rn, ARM64_MAX_OP_LEN, ", [%s", orc_arm64_reg_name(Rn, bits));
+          snprintf (opt_rm, ARM64_MAX_OP_LEN, ", #%d]", imm);
+        } else {
+          snprintf (opt_rn, ARM64_MAX_OP_LEN, ", [%s]", orc_arm64_reg_name(Rn, bits));
+        }
+
+        if (bits == ORC_ARM64_REG_64) {
+          if (imm < 0 || imm > 0xfff * 8)
+            ORC_COMPILER_ERROR(p, "imm is Out-of-range %x\n", imm);
+          imm /= 8;
+        } else {
+          if (imm < 0 || imm > 0xfff * 4)
+            ORC_COMPILER_ERROR(p, "imm is Out-of-range %x\n", imm);
+          imm /= 4;
+        }
+
+        code = arm64_code_mem_unsigned (bits, opcode, imm, Rn, Rt);
+      }
+      break;
+    case ORC_ARM64_TYPE_EXT:
+      extend = opt;
+
+      if ((extend >= sizeof(extend_names)/sizeof(extend_names[0])) ||
+          !strncmp (extend_names[extend], "ERROR", 5)) {
+        ORC_COMPILER_ERROR(p, "unsupported extend %d\n", extend);
+        return;
+      }
+
+      snprintf (opt_rn, ARM64_MAX_OP_LEN, ", [%s", orc_arm64_reg_name(Rn, bits));
+
+      amount = (orc_uint32) val;
+      if (amount > 0) {
+        if (bits == ORC_ARM64_REG_64 && amount != 3) {
+          ORC_COMPILER_ERROR(p, "unsupported amount %d\n", amount);
+          return;
+        }
+        if (bits == ORC_ARM64_REG_32 && amount != 2) {
+          ORC_COMPILER_ERROR(p, "unsupported amount %d\n", amount);
+          return;
+        }
+        snprintf (opt_rm, ARM64_MAX_OP_LEN, ", %s, %s #%u]",
+            orc_arm64_reg_name(Rm, bits), extend_names[extend], amount);
+
+        S = 1;
+      } else {
+        if (extend == 3) {   /** LSL */
+          snprintf (opt_rm, ARM64_MAX_OP_LEN, ", %s]", orc_arm64_reg_name(Rm, bits));
+        } else {
+          snprintf (opt_rm, ARM64_MAX_OP_LEN, ", %s, %s]",
+              orc_arm64_reg_name(Rm, bits), extend_names[extend]);
+        }
+
+        S = 0;
+      }
+
+      code = arm64_code_mem_extended (bits, opcode, Rm, extend, S, Rn, Rt);
+      break;
+    default:
+      ORC_COMPILER_ERROR(p, "unsupported type %d\n", type);
+      return;
+  }
+
+  ORC_ASM_CODE(p, "  %s %s%s%s\n",
+      insn_names[opcode],
+      orc_arm64_reg_name(Rt, bits),
+      opt_rn, opt_rm);
 
   orc_arm_emit (p, code);
 }
