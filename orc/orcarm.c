@@ -1206,10 +1206,10 @@ orc_arm64_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
   int shift;
 
   static const char *insn_names[] = {
-    "and", "orr", "eor", "tst"
+    "and", "orr", "eor", "ands"
   };
   static const char *insn_alias[] = {
-    "ERROR", "ERROR", "ERROR", "ands"
+    "ERROR", "ERROR", "ERROR", "tst"
   };
   static const char *shift_names[] = {
     "lsl", "lsr", "asr", "ror"
