@@ -100,7 +100,9 @@ typedef enum {
   /** bitfield */
   ORC_ARM64_DP_SBFM,
   ORC_ARM64_DP_BFM,
-  ORC_ARM64_DP_UBFM
+  ORC_ARM64_DP_UBFM,
+  /** extract */
+  ORC_ARM64_DP_EXTR
 } OrcArm64DP;
 
 typedef enum {
@@ -404,6 +406,8 @@ ORC_API void orc_arm_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP o
     OrcArm64Type type, int opt, int Rd, int Rn, int Rm, orc_uint64 val);
 ORC_API void orc_arm64_emit_bfm (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
         int Rn, int Rd, orc_uint32 immr, orc_uint32 imms);
+ORC_API void orc_arm64_emit_extr (OrcCompiler *p, OrcArm64RegBits bits,
+        int Rd, int Rn, int Rm, orc_uint32 imm);
 /** @todo add arm64-specific helper functions if needed */
 
 /** ORC_ARM64_DP_LSL/ASR/ASR/ROR */
@@ -414,6 +418,8 @@ ORC_API void orc_arm64_emit_bfm (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64D
   orc_arm64_emit_bfm(p,bits,ORC_ARM64_DP_UBFM,Rd,Rn,imm,0x1f)
 #define orc_arm64_emit_asr_imm(p,bits,Rd,Rn,imm) \
   orc_arm64_emit_bfm(p,bits,ORC_ARM64_DP_ORC_ARM64_DP_SBFM,Rd,Rn,imm,0x1f)
+#define orc_arm64_emit_ror_imm(p,bits,Rd,Rn,imm) \
+  orc_arm64_emit_extr(p,bits,Rd,Rn,Rn,imm)
 
 #endif
 
