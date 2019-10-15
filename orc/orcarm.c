@@ -286,7 +286,10 @@ void
 orc_arm_emit_nop (OrcCompiler *compiler)
 {
   ORC_ASM_CODE(compiler,"  nop\n");
-  orc_arm_emit (compiler, 0xe1a00000);
+  if (compiler->is_64bit)
+    orc_arm_emit (compiler, 0xd503201f);
+  else
+    orc_arm_emit (compiler, 0xe1a00000);
 }
 
 void
