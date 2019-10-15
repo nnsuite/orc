@@ -1437,3 +1437,45 @@ orc_arm64_emit_bfm (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
 
   orc_arm_emit (p, code);
 }
+
+/** data processing instructions: Extract, alias of ROR (imm)
+ *
+ *    3                   2                   1
+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |b|0 0|1 0 0 1 1 1|N|0|    Rm   |    imms   |    Rn   |    Rd   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+#define arm64_code_extr(b,Rm,imms,Rn,Rd) (0x13800000 | ((((b)==64)&0x1)<<31) | \
+    ((((b)==64)&0x1)<<22) | (((Rm)&0x1f)<<16) | (((imms)&0x3f)<<10) | \
+    (((Rn)&0x1f)<<5) | ((Rd)&0x1f))
+
+void
+orc_arm64_emit_extr (OrcCompiler *p, OrcArm64RegBits bits,
+    int Rd, int Rn, int Rm, orc_uint32 imm)
+{
+  orc_uint32 code;
+
+  code = arm64_code_extr (bits, Rm, imm, Rn, Rd);
+
+  if (Rn == Rm) { /** ROR (imm) */
+    if (bits == ORC_ARM64_REG_32 && (imm & 0x20)) {
+      ORC_COMPILER_ERROR(p, "invalid immediate value 0x%08x", imm);
+      return;
+    }
+
+    ORC_ASM_CODE(p, "  ror %s, %s, #%u\n",
+      orc_arm64_reg_name(Rd, bits),
+      orc_arm64_reg_name(Rn, bits),
+      imm);
+  } else {
+    ORC_ASM_CODE(p, "  extr %s, %s, %s, #%u\n",
+      orc_arm64_reg_name(Rd, bits),
+      orc_arm64_reg_name(Rn, bits),
+      orc_arm64_reg_name(Rm, bits),
+      imm);
+  }
+
+  orc_arm_emit (p, code);
+}
