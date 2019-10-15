@@ -1281,3 +1281,159 @@ orc_arm64_emit_logical (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
 
   orc_arm_emit (p, code);
 }
+
+/** data processing instructions: Bitfield Move
+ *
+ * General formats
+ *    3                   2                   1
+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |b|op |1 0 0 1 1 0|N|    immr   |    imms   |    Rn   |    Rd   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Note that Bitfiled Move is usually accessed via one of its aliases
+ */
+
+#define arm64_code_bfm(b,opcode,immr,imms,Rn,Rd) (0x19000000 | ((((b)==64)&0x1)<<31) | \
+    (((opcode)&0x3)<<29) | ((((b)==64)&0x1)<<22) | (((immr)&0x3f)<<16) | (((imms)&0x3f)<<10) | \
+    (((Rn)&0x1f)<<5) | ((Rd)&0x1f))
+
+/** Return 1 if ubfx or sbfx is preferred. Must exclude more specific aliases */
+static int bfx_preferred (OrcArm64RegBits bits, int is_unsigned,
+    orc_uint32 imms, orc_uint32 immr)
+{
+  if (imms < immr)
+    return 0;
+
+  /** must not match LSR/ASR/LSL alias */
+  if (imms == 0x1f)
+    return 0;
+
+  /** must not match UXTx/SXTx alias */
+  if (immr == 0) {
+    if (bits == ORC_ARM64_REG_32) {
+      if (imms == 0x7 || imms == 0xf)
+        return 0;
+    } else if (is_unsigned) {
+      if (imms == 0x7 || imms == 0xf || imms == 0x1f)
+        return 0;
+    }
+  }
+
+  return 1;
+}
+
+void
+orc_arm64_emit_bfm (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
+    int Rn, int Rd, orc_uint32 immr, orc_uint32 imms)
+{
+  orc_uint32 code;
+  int alias = -1;
+
+  static const char *insn_names[3] = {
+    "sbfm", "bfm", "ubfm"
+  };
+  static const char *insn_alias[3][6] = {
+    {"asr","sbfiz","sbfx","sxtb","sxth","sxtw"},
+    {"bfc","bfi","bfxil", "ERROR","ERROR","ERROR"},
+    {"lsl","lsr","ubfiz","ubfx","uxtb","uxth"}
+  };
+
+  char opt_immr[ARM64_MAX_OP_LEN];
+  char opt_imms[ARM64_MAX_OP_LEN];
+
+  memset (opt_immr, '\x00', ARM64_MAX_OP_LEN);
+  memset (opt_imms, '\x00', ARM64_MAX_OP_LEN);
+
+  /** find its alias */
+  switch (opcode) {
+    case ORC_ARM64_DP_SBFM:
+      if (imms == 0x1f) {
+        if (bits == ORC_ARM64_REG_64)
+          imms |= 0x20;
+        snprintf (opt_immr, ARM64_MAX_OP_LEN, ", #%u", immr);
+        alias = 0;
+      } else if (imms < immr) {
+        snprintf (opt_immr, ARM64_MAX_OP_LEN, ", #%u", immr);
+        snprintf (opt_imms, ARM64_MAX_OP_LEN, ", #%u", imms);
+        alias = 1;
+      } else if (bfx_preferred(bits, 0, imms, immr)) {
+        snprintf (opt_immr, ARM64_MAX_OP_LEN, ", #%u", immr);
+        snprintf (opt_imms, ARM64_MAX_OP_LEN, ", #%u", imms);
+        alias = 2;
+      } else if (immr == 0) {
+        if (imms == 0x7)
+          alias = 3;
+        else if (imms == 0xf)
+          alias = 4;
+        else if (imms == 0x1f)
+          alias = 5;
+      }
+      break;
+    case ORC_ARM64_DP_BFM:
+      if (imms < immr) {
+        if (Rn == 0x1f) {
+          snprintf (opt_immr, ARM64_MAX_OP_LEN, ", #%u", immr);
+          alias = 0;
+        } else {
+          snprintf (opt_immr, ARM64_MAX_OP_LEN, ", #%u", immr);
+          snprintf (opt_imms, ARM64_MAX_OP_LEN, ", #%u", imms);
+          alias = 1;
+        }
+      } else {
+        snprintf (opt_immr, ARM64_MAX_OP_LEN, ", #%u", immr);
+        snprintf (opt_imms, ARM64_MAX_OP_LEN, ", #%u", imms);
+        alias = 2;
+      }
+      break;
+    case ORC_ARM64_DP_UBFM:
+      if (imms == 0x1f) {
+        if (bits == ORC_ARM64_REG_64)
+          imms |= 0x20;
+        snprintf (opt_immr, ARM64_MAX_OP_LEN, ", #%u", immr);
+        alias = 1;
+      } else if (imms + 1 == immr) {
+        if (bits == ORC_ARM64_REG_64)
+          imms |= 0x20;
+        snprintf (opt_immr, ARM64_MAX_OP_LEN, ", #%u", immr);
+        alias = 0;
+      } else if (imms < immr) {
+        snprintf (opt_immr, ARM64_MAX_OP_LEN, ", #%u", immr);
+        snprintf (opt_imms, ARM64_MAX_OP_LEN, ", #%u", imms);
+        alias = 2;
+      } else if (bfx_preferred(bits, 1, imms, immr)) {
+        snprintf (opt_immr, ARM64_MAX_OP_LEN, ", #%u", immr);
+        snprintf (opt_imms, ARM64_MAX_OP_LEN, ", #%u", imms);
+        alias = 3;
+      } else if (immr == 0) {
+        if (imms == 0x7)
+          alias = 4;
+        else if (imms == 0xf)
+          alias = 5;
+      }
+      break;
+    default:
+      ORC_COMPILER_ERROR(p, "unknown opcode %d", opcode);
+      return;
+  }
+
+  opcode -= ORC_ARM64_DP_SBFM;
+
+  code = arm64_code_bfm(bits, opcode, immr, imms, Rn, Rd);
+
+  if (alias != -1) {
+    ORC_ASM_CODE(p, "  %s %s, %s%s%s\n",
+        insn_alias[opcode][alias],
+        orc_arm64_reg_name(Rd, bits),
+        orc_arm64_reg_name(Rn, bits),
+        opt_immr, opt_imms);
+  } else {
+    ORC_ASM_CODE(p, "  %s %s, %s, #%u, #%u\n",
+        insn_names[opcode],
+        orc_arm64_reg_name(Rd, bits),
+        orc_arm64_reg_name(Rn, bits),
+        immr, imms);
+  }
+
+  orc_arm_emit (p, code);
+}
