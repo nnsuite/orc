@@ -963,7 +963,8 @@ orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
     "sxtb", "sxth", "sxtw", "sxtx"
   };
 
-  char operator[64];
+  int alias_rd;
+  char opt_rm[ARM64_MAX_OP_LEN];
 
   opcode -= ORC_ARM64_DP_ADD;
 
@@ -972,11 +973,14 @@ orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
     return;
   }
 
-  /** if a reg is not specified, set it to SP (== 0b11111) */
-  if (Rd == 0) Rd = ORC_ARM64_SP;
-  if (Rn == 0) Rn = ORC_ARM64_SP;
+  /** if a reg is not specified, it's regarded as alias; set it to SP (== 0b11111) */
+  alias_rd = 0;
+  if (Rd == 0) {
+    Rd = ORC_ARM64_SP;
+    alias_rd = 1;
+  }
 
-  memset (operator, '\x00', 64);
+  memset (opt_rm, '\x00', ARM64_MAX_OP_LEN);
 
   switch (type) {
     case ORC_ARM64_TYPE_IMM:      /** immediate */
@@ -997,7 +1001,7 @@ orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
         shift = 1;
       }
 
-      snprintf (operator, ARM64_MAX_OP_LEN, ", #0x%08x", imm);
+      snprintf (opt_rm, ARM64_MAX_OP_LEN, ", #0x%08x", imm);
 
       code = arm64_code_arith_imm (bits, opcode, shift, imm, Rn, Rd);
       break;
@@ -1017,10 +1021,10 @@ orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
           return;
         }
 
-        snprintf (operator, ARM64_MAX_OP_LEN, ", %s, %s #%u",
+        snprintf (opt_rm, ARM64_MAX_OP_LEN, ", %s, %s #%u",
             orc_arm64_reg_name (Rm, bits), shift_names[shift], imm);
       } else
-        snprintf (operator, ARM64_MAX_OP_LEN, ", %s", orc_arm64_reg_name (Rm, bits));
+        snprintf (opt_rm, ARM64_MAX_OP_LEN, ", %s", orc_arm64_reg_name (Rm, bits));
 
       code = arm64_code_arith_reg (bits, opcode, shift, Rm, imm, Rn, Rd);
       break;
@@ -1040,11 +1044,11 @@ orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
           return;
         }
         /** its width is determined by extend; '0bx11' ==> 64-bit reg */
-        snprintf (operator, ARM64_MAX_OP_LEN, ", %s, %s #%u",
+        snprintf (opt_rm, ARM64_MAX_OP_LEN, ", %s, %s #%u",
             orc_arm64_reg_name (Rm, extend & 0x3 ? ORC_ARM64_REG_64 : ORC_ARM64_REG_32),
             extend_names[extend], imm);
       } else
-        snprintf (operator, ARM64_MAX_OP_LEN, ", %s", orc_arm64_reg_name (Rm, bits));
+        snprintf (opt_rm, ARM64_MAX_OP_LEN, ", %s", orc_arm64_reg_name (Rm, bits));
 
       code = arm64_code_arith_ext(bits, opcode, Rm, extend, imm, Rn, Rd);
       break;
@@ -1053,10 +1057,14 @@ orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
       return;
   }
 
-  ORC_ASM_CODE(p, "  %s %s, %s%s\n",
-      /** it's preferred to use alias names if exists */
-      (Rn == ORC_ARM64_SP || Rd == ORC_ARM64_SP) ? insn_alias[opcode] : insn_names[opcode],
-      orc_arm64_reg_name(Rd, bits), orc_arm64_reg_name(Rn, bits), operator);
+  /** it's preferred to use alias names if exists */
+  if (alias_rd) {
+    ORC_ASM_CODE(p, "  %s %s%s\n", insn_alias[opcode],
+        orc_arm64_reg_name(Rn, bits), opt_rm);
+  } else {
+    ORC_ASM_CODE(p, "  %s %s, %s%s\n", insn_names[opcode],
+        orc_arm64_reg_name(Rd, bits), orc_arm64_reg_name(Rn, bits), opt_rm);
+  }
 
   orc_arm_emit (p, code);
 }
@@ -1202,18 +1210,26 @@ orc_arm64_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
     "lsl", "lsr", "asr", "ror"
   };
 
-  char operator[ARM64_MAX_OP_LEN];
+  int alias_rd, alias_rn;
+  char opt_rm[ARM64_MAX_OP_LEN];
 
   if (opcode >= sizeof(insn_names)/sizeof(insn_names[0])) {
     ORC_COMPILER_ERROR(p, "unsupported opcode %d", opcode);
     return;
   }
 
-  /** if a reg is not specified, set it to SP (== 0b11111) */
-  if (Rd == 0) Rd = ORC_ARM64_SP;
-  if (Rn == 0) Rn = ORC_ARM64_SP;
+  /** if a reg is not specified, it's regarded as alias; set it to SP (== 0b11111) */
+  alias_rd = alias_rn = 0;
+  if (Rd == 0) {
+    Rd = ORC_ARM64_SP;
+    alias_rd = 1;
+  }
+  if (Rn == 0) {
+    Rn = ORC_ARM64_SP;
+    alias_rn = 1;
+  }
 
-  memset (operator, '\x00', ARM64_MAX_OP_LEN);
+  memset (opt_rm, '\x00', ARM64_MAX_OP_LEN);
 
   switch (type) {
     case ORC_ARM64_TYPE_IMM:      /** immediate */
@@ -1229,7 +1245,7 @@ orc_arm64_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
         return;
       }
 
-      snprintf (operator, ARM64_MAX_OP_LEN, ", #0x%08x", (orc_uint32) val);
+      snprintf (opt_rm, ARM64_MAX_OP_LEN, ", #0x%08x", (orc_uint32) val);
 
       code = arm64_code_logical_imm (bits, opcode, imm, Rn, Rd);
       break;
@@ -1249,10 +1265,10 @@ orc_arm64_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
           return;
         }
 
-        snprintf (operator, ARM64_MAX_OP_LEN, ", %s, %s #%u",
+        snprintf (opt_rm, ARM64_MAX_OP_LEN, ", %s, %s #%u",
             orc_arm64_reg_name (Rm, bits), shift_names[shift], imm);
       } else
-        snprintf (operator, ARM64_MAX_OP_LEN, ", %s", orc_arm64_reg_name (Rm, bits));
+        snprintf (opt_rm, ARM64_MAX_OP_LEN, ", %s", orc_arm64_reg_name (Rm, bits));
 
       code = arm64_code_logical_reg (bits, opcode, shift, Rm, imm, Rn, Rd);
       break;
@@ -1261,10 +1277,17 @@ orc_arm64_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
       return;
   }
 
-  ORC_ASM_CODE(p, "  %s %s, %s%s\n",
-      /** it's preferred to use alias names if exists */
-      (Rn == ORC_ARM64_SP || Rd == ORC_ARM64_SP) ? insn_alias[opcode] : insn_names[opcode],
-      orc_arm64_reg_name(Rd, bits), orc_arm64_reg_name(Rn, bits), operator);
+  /** it's preferred to use alias names if exists */
+  if (alias_rd) {
+    ORC_ASM_CODE(p, "  %s %s%s\n", insn_alias[opcode],
+        orc_arm64_reg_name(Rn, bits), opt_rm);
+  } else if (alias_rn) {
+    ORC_ASM_CODE(p, "  %s %s%s\n", insn_alias[opcode],
+        orc_arm64_reg_name(Rd, bits), opt_rm);
+  } else {
+    ORC_ASM_CODE(p, "  %s %s, %s%s\n", insn_names[opcode],
+        orc_arm64_reg_name(Rd, bits), orc_arm64_reg_name(Rn, bits), opt_rm);
+  }
 
   orc_arm_emit (p, code);
 }
