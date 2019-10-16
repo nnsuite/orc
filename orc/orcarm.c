@@ -1094,7 +1094,15 @@ orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
     ((((b)==64)&0x1)<<31) | (((op)&0x3)<<29) | (((sft)&0x3)<<22) | \
     (((Rm)&0x1f)<<16) | (((imm)&0x3f)<<10) | (((Rn)&0x1f)<<5)  | ((Rd)&0x1f))
 
+/**
+ * check if it's a non-empty sequence of ones starting at the LSB with the remainder zero
+ * e.g., mask_ones(0x0000FFFF) == true
+ */
 #define mask_ones(val) ((val) && (((val) + 1) & (val)) == 0)
+/**
+ * check if it contains a non-empty sequence of ones with the remainder zero
+ * e.g., mask_shifted_ones(0x0000FF00) == true
+ */
 #define mask_shifted_ones(val) ((val) && mask_ones(((val) - 1) | (val)))
 
 #if defined(__GNUC__)
@@ -1168,7 +1176,7 @@ encode_logical_imm (int size, orc_uint64 val)
   mask = ((orc_uint64)-1ULL) >> (64 - size);
   val &= mask;
 
-  if (mask_ones (val)) {
+  if (mask_shifted_ones (val)) {
     I = count_trailing_zeros (val);
     CTO = count_trailing_ones (val >> I);
   } else {
