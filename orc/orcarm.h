@@ -410,7 +410,7 @@ ORC_API void orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP
 ORC_API void orc_arm64_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
     OrcArm64Type type, int opt, int Rd, int Rn, int Rm, orc_uint64 val);
 ORC_API void orc_arm64_emit_bfm (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
-    int Rn, int Rd, orc_uint32 immr, orc_uint32 imms);
+    int Rd, int Rn, orc_uint32 immr, orc_uint32 imms);
 ORC_API void orc_arm64_emit_extr (OrcCompiler *p, OrcArm64RegBits bits,
     int Rd, int Rn, int Rm, orc_uint32 imm);
 ORC_API void orc_arm64_emit_mem (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64Mem opcode,

@@ -1308,7 +1308,7 @@ static int bfx_preferred (OrcArm64RegBits bits, int is_unsigned,
 
 void
 orc_arm64_emit_bfm (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
-    int Rn, int Rd, orc_uint32 immr, orc_uint32 imms)
+    int Rd, int Rn, orc_uint32 immr, orc_uint32 imms)
 {
   orc_uint32 code;
   int alias = -1;
