@@ -97,8 +97,12 @@ orc_arm_emit (OrcCompiler *compiler, orc_uint32 insn)
 void
 orc_arm_emit_bx_lr (OrcCompiler *compiler)
 {
-  ORC_ASM_CODE(compiler,"  bx lr\n");
-  orc_arm_emit (compiler, 0xe12fff1e);
+  if (compiler->is_64bit) {
+    orc_arm64_emit_ret (compiler, ORC_ARM64_LR);
+  } else {
+    ORC_ASM_CODE(compiler,"  bx lr\n");
+    orc_arm_emit (compiler, 0xe12fff1e);
+  }
 }
 
 void
@@ -1684,6 +1688,21 @@ orc_arm64_emit_mem (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64Mem opcode,
       insn_names[opcode],
       orc_arm64_reg_name(Rt, bits),
       opt_rn, opt_rm);
+
+  orc_arm_emit (p, code);
+}
+
+/** Return from subroutine */
+
+void
+orc_arm64_emit_ret (OrcCompiler *p, int Rn)
+{
+  orc_uint32 code;
+
+  code = 0xd65f0000 | ((Rn & 0x1f) << 5);
+
+  ORC_ASM_CODE (p, "  ret %s\n",
+      Rn == ORC_ARM64_LR ? "" : orc_arm64_reg_name (Rn, ORC_ARM64_REG_64));
 
   orc_arm_emit (p, code);
 }
