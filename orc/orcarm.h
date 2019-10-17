@@ -97,6 +97,11 @@ typedef enum {
   ORC_ARM64_DP_ORR,
   ORC_ARM64_DP_EOR,
   ORC_ARM64_DP_ANDS, /** alias of TST */
+  /** shift */
+  ORC_ARM64_DP_LSL,
+  ORC_ARM64_DP_LSR,
+  ORC_ARM64_DP_ASR,
+  ORC_ARM64_DP_ROR,
   /** bitfield */
   ORC_ARM64_DP_SBFM,
   ORC_ARM64_DP_BFM,
@@ -409,6 +414,8 @@ ORC_API void orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP
     OrcArm64Type type, int opt, int Rd, int Rn, int Rm, orc_uint64 val);
 ORC_API void orc_arm64_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
     OrcArm64Type type, int opt, int Rd, int Rn, int Rm, orc_uint64 val);
+ORC_API void orc_arm64_emit_sft (OrcCompiler *p, OrcArm64RegBits bits, OrcArmShift shift,
+    int Rd, int Rn, int Rm, orc_uint64 val);
 ORC_API void orc_arm64_emit_bfm (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
     int Rn, int Rd, orc_uint32 immr, orc_uint32 imms);
 ORC_API void orc_arm64_emit_extr (OrcCompiler *p, OrcArm64RegBits bits,
@@ -770,6 +777,15 @@ ORC_API void orc_arm64_emit_mem (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64M
   orc_arm64_emit_bfm(p,bits,ORC_ARM64_DP_ORC_ARM64_DP_SBFM,Rd,Rn,imm,0x1f)
 #define orc_arm64_emit_ror_imm(p,bits,Rd,Rn,imm) \
   orc_arm64_emit_extr(p,bits,Rd,Rn,Rn,imm)
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_lsl(p,bits,Rd,Rn,Rm) \
+  orc_arm64_emit_sft(p,bits,ORC_ARM64_DP_LSL,Rd,Rn,Rm)
+#define orc_arm64_emit_lsr(p,bits,Rd,Rn,Rm) \
+  orc_arm64_emit_sft(p,bits,ORC_ARM64_DP_LSR,Rd,Rn,Rm)
+#define orc_arm64_emit_asr(p,bits,Rd,Rn,Rm) \
+  orc_arm64_emit_sft(p,bits,ORC_ARM64_DP_ASR,Rd,Rn,Rm)
+#define orc_arm64_emit_ror(p,bits,Rd,Rn,Rm) \
+  orc_arm64_emit_sft(p,bits,ORC_ARM64_DP_ROR,Rd,Rn,Rm)
 
 /** memory access instructions */
 
