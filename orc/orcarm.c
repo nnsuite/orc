@@ -1265,6 +1265,45 @@ orc_arm64_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
   orc_arm_emit (p, code);
 }
 
+/** data processing instructions: Shift (reg)
+ *
+ * General formats
+ *    3                   2                   1
+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |b|0 0|1 1 0 1 0 1 1 0|    Rm   |0 0 1 0|sft|    Rn   |    Rd   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+#define arm64_code_shift(b,Rm,sft,Rn,Rd) (0x1ac02000 | ((((b)==64)&0x1)<<31) | \
+    (((Rm)&0x1f)<<16) | (((sft)&0x3)<<10) | (((Rn)&0x1f)<<5)  | ((Rd)&0x1f))
+
+void
+orc_arm64_emit_sft (OrcCompiler *p, OrcArm64RegBits bits, OrcArmShift shift,
+    int Rd, int Rn, int Rm)
+{
+  orc_uint32 code;
+
+  static const char *shift_names[] = {
+    "lsl", "lsr", "asr", "ror"
+  };
+
+  if (shift >= sizeof(shift_names)/sizeof(shift_names[0])) {
+    ORC_COMPILER_ERROR(p, "unsupported shift %d", shift);
+    return;
+  }
+
+  code = arm64_code_shift(bits, Rm, shift, Rn, Rd);
+
+  ORC_ASM_CODE(p, "  %s %s, %s, %s\n",
+      shift_names[shift],
+      orc_arm64_reg_name(Rd, bits),
+      orc_arm64_reg_name(Rn, bits),
+      orc_arm64_reg_name(Rm, bits));
+
+  orc_arm_emit (p, code);
+}
+
 /** data processing instructions: Bitfield Move
  *
  * General formats
