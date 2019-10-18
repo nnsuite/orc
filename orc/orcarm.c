@@ -1212,7 +1212,7 @@ orc_arm64_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
     "and", "orr", "eor", "ands"
   };
   static const char *insn_alias[] = {
-    "ERROR", "ERROR", "ERROR", "tst"
+    "ERROR", "mov", "ERROR", "tst"
   };
   static const char *shift_names[] = {
     "lsl", "lsr", "asr", "ror"
@@ -1296,6 +1296,71 @@ orc_arm64_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
     ORC_ASM_CODE(p, "  %s %s, %s%s\n", insn_names[opcode],
         orc_arm64_reg_name(Rd, bits), orc_arm64_reg_name(Rn, bits), opt_rm);
   }
+
+  orc_arm_emit (p, code);
+}
+
+/** data processing instructions: move wide
+ *
+ * General formats
+ *    3                   2                   1
+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |b|op |1 0 0 1 0 1|hw |              imm16            |    Rd   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+#define arm64_code_mov_wide(b,op,hw,imm,Rd) (0x12800000 | ((!!((b)==64))<<31) | \
+    (((op)&0x3)<<29) | (((hw)&0x3)<<21) | (((imm)&0xffff)<<5) | ((Rd)&0x1f))
+
+void
+orc_arm64_emit_mov_wide (OrcCompiler *p, OrcArm64RegBits bits, int mov_op, int hw,
+    int Rd, orc_uint64 val)
+{
+  orc_uint16 imm;
+  orc_uint32 code;
+
+  static const char *mov_names[] = {
+    "movn", "ERROR", "movz", "movk"
+  };
+  char opt_lsl[ARM64_MAX_OP_LEN];
+
+  if (mov_op >= sizeof(mov_names)/sizeof(mov_names[0])) {
+    ORC_COMPILER_ERROR(p, "unsupported mov opcode %d", mov_op);
+    return;
+  }
+
+  if (val > 65535) {
+    ORC_COMPILER_ERROR(p, "unsupported amount of imm %llu", val);
+    return;
+  }
+
+  if (bits == ORC_ARM64_REG_64) {
+    if (!(hw == 0 || hw == 16 || hw == 32 || hw == 48)) {
+      ORC_COMPILER_ERROR(p, "unsupported hw shift %d", hw);
+      return;
+    }
+  } else {
+    if (!(hw == 0 || hw == 16)) {
+      ORC_COMPILER_ERROR(p, "unsupported hw shift %d", hw);
+      return;
+    }
+  }
+
+  memset (opt_lsl, '\x00', ARM64_MAX_OP_LEN);
+  if (hw > 0) {
+    snprintf (opt_lsl, ARM64_MAX_OP_LEN, ", lsl #%d", hw);
+  }
+
+  hw /= 16;
+  imm = val;
+  code = arm64_code_mov_wide(bits, mov_op, hw, imm, Rd);
+
+  ORC_ASM_CODE(p, "  %s %s, #%u%s\n",
+      /** movz has one alias condition */
+      (mov_op == 2) && !(imm == 0 && hw != 0) ? "mov" : mov_names[mov_op],
+      orc_arm64_reg_name(Rd, bits),
+      imm, opt_lsl);
 
   orc_arm_emit (p, code);
 }
