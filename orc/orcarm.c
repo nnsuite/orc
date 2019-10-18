@@ -105,6 +105,19 @@ orc_arm_emit_bx_lr (OrcCompiler *compiler)
   }
 }
 
+static int
+count_reg_ones (int regs)
+{
+  int count = 0;
+
+  while (regs) {
+    count += regs & 1;
+    regs >>= 1;
+  }
+
+  return count;
+}
+
 void
 orc_arm_emit_push (OrcCompiler *compiler, int regs, orc_uint32 vregs)
 {
@@ -113,19 +126,58 @@ orc_arm_emit_push (OrcCompiler *compiler, int regs, orc_uint32 vregs)
   if (regs) {
     int x = 0;
 
-    ORC_ASM_CODE(compiler,"  push {");
-    for(i=0;i<16;i++){
-      if (regs & (1<<i)) {
-        x |= (1<<i);
-        ORC_ASM_CODE(compiler,"r%d", i);
-        if (x != regs) {
-          ORC_ASM_CODE(compiler,", ");
+    if (compiler->is_64bit) {
+      int count, stores;
+      int stack_increased = 0;
+      /** a number of 1s in regs */
+      count = count_reg_ones (regs);
+      /** AArch64 requires a 16-byte aligned stack pointer */
+      stores = (count-1)/2+1;
+      x = -1;
+      for(i=0;i<32;i++){
+        if (stores == 0) break;
+        if (regs & (1<<i)) {
+          if (stack_increased == 0) {
+            /** increase stack area & store registers */
+            if (count % 2 == 1) {
+              orc_arm64_emit_store_pre (compiler, 64, ORC_GP_REG_BASE+i,
+                  ORC_ARM64_SP, (stores--) * -16);
+              stack_increased = 1;
+              continue;
+            } else if (x != -1) {
+              orc_arm64_emit_store_pair_pre (compiler, 64, ORC_GP_REG_BASE+x,
+                  ORC_GP_REG_BASE+i, ORC_ARM64_SP, (stores--) * -16);
+              stack_increased = 1;
+              x = -1;
+              continue;
+            }
+          }
+
+          if (x != -1) {
+            /** store registers */
+            orc_arm64_emit_store_pair_reg (compiler, 64, ORC_GP_REG_BASE+x,
+                ORC_GP_REG_BASE+i, ORC_ARM64_SP, (stores--) * 16);
+            x = -1;
+          } else {
+            x = i;
+          }
         }
       }
-    }
-    ORC_ASM_CODE(compiler,"}\n");
+    } else {
+      ORC_ASM_CODE(compiler,"  push {");
+      for(i=0;i<16;i++){
+        if (regs & (1<<i)) {
+          x |= (1<<i);
+          ORC_ASM_CODE(compiler,"r%d", i);
+          if (x != regs) {
+            ORC_ASM_CODE(compiler,", ");
+          }
+        }
+      }
+      ORC_ASM_CODE(compiler,"}\n");
 
-    orc_arm_emit (compiler, 0xe92d0000 | regs);
+      orc_arm_emit (compiler, 0xe92d0000 | regs);
+    }
   }
 
   if (vregs) {
@@ -177,19 +229,50 @@ orc_arm_emit_pop (OrcCompiler *compiler, int regs, orc_uint32 vregs)
   if (regs) {
     int x = 0;
 
-    ORC_ASM_CODE(compiler,"  pop {");
-    for(i=0;i<16;i++){
-      if (regs & (1<<i)) {
-        x |= (1<<i);
-        ORC_ASM_CODE(compiler,"r%d", i);
-        if (x != regs) {
-          ORC_ASM_CODE(compiler,", ");
+    if (compiler->is_64bit) {
+      int count, loads, tmp_loads;
+      /** a number of 1s in regs */
+      count = count_reg_ones (regs);
+      /** AArch64 requires a 16-byte aligned stack pointer */
+      loads = (count-1)/2+1;
+      tmp_loads = loads;
+      x = -1;
+      for(i=31;i>=0;i--){
+        if (regs & (1<<i)) {
+          if (x != -1) {
+            if (tmp_loads == 1) break;
+            /** load registers */
+            orc_arm64_emit_load_pair_reg (compiler, 64, ORC_GP_REG_BASE+i,
+                ORC_GP_REG_BASE+x, ORC_ARM64_SP, (loads - (--tmp_loads)) * 16);
+            x = -1;
+          } else {
+            x = i;
+          }
         }
       }
-    }
-    ORC_ASM_CODE(compiler,"}\n");
+      /** decrease stack area & load registers */
+      if (count % 2 == 1) {
+        orc_arm64_emit_load_post (compiler, 64, ORC_GP_REG_BASE+x,
+            ORC_ARM64_SP, loads * 16);
+      } else {
+        orc_arm64_emit_load_pair_post (compiler, 64, ORC_GP_REG_BASE+i,
+            ORC_GP_REG_BASE+x, ORC_ARM64_SP, loads * 16);
+      }
+    } else {
+      ORC_ASM_CODE(compiler,"  pop {");
+      for(i=0;i<16;i++){
+        if (regs & (1<<i)) {
+          x |= (1<<i);
+          ORC_ASM_CODE(compiler,"r%d", i);
+          if (x != regs) {
+            ORC_ASM_CODE(compiler,", ");
+          }
+        }
+      }
+      ORC_ASM_CODE(compiler,"}\n");
 
-    orc_arm_emit (compiler, 0xe8bd0000 | regs);
+      orc_arm_emit (compiler, 0xe8bd0000 | regs);
+    }
   }
 }
 
@@ -1719,6 +1802,81 @@ orc_arm64_emit_mem (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64Mem opcode,
       insn_names[opcode],
       orc_arm64_reg_name(Rt, bits),
       opt_rn, opt_rm);
+
+  orc_arm_emit (p, code);
+}
+
+/** memory access instructions (pair)
+ *
+ *    3                   2                   1
+ *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |b 0|1 0 1|0| opt |L|     imm7    |   Rt2   |    Rn   |    Rt   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+
+#define arm64_code_mem_pair(b,opt,L,imm,Rt2,Rn,Rt) (0x40000000 | ((!!((b)==64))<<31) | \
+    (((opt)&0x7)<<23) | (((L)&0x1)<<22) | (((imm)&0x7f)<<15) | (((Rt2)&0x1f)<<10) | \
+    (((Rn)&0x1f)<<5) | ((Rt)&0x1f))
+
+void
+orc_arm64_emit_mem_pair (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64Mem opcode,
+    int opt, int Rt, int Rt2, int Rn, orc_int32 imm)
+{
+  orc_uint32 code;
+
+  static const char *insn_names[] = {
+    "stp", "ldp"
+  };
+
+  char opt_rn[ARM64_MAX_OP_LEN];
+
+  opcode -= ORC_ARM64_MEM_STR;
+
+  if (opcode >= sizeof(insn_names)/sizeof(insn_names[0])) {
+    ORC_COMPILER_ERROR(p, "unsupported opcode %d", opcode);
+    return;
+  }
+
+  memset (opt_rn, '\x00', ARM64_MAX_OP_LEN);
+
+  switch (opt) {
+    case 1: /** post-index */
+      snprintf (opt_rn, ARM64_MAX_OP_LEN, ", [%s], #%d", orc_arm64_reg_name(Rn, bits), imm);
+      break;
+    case 2: /** signed offset */
+      if (imm) {
+        snprintf (opt_rn, ARM64_MAX_OP_LEN, ", [%s, #%d]", orc_arm64_reg_name(Rn, bits), imm);
+      } else {
+        snprintf (opt_rn, ARM64_MAX_OP_LEN, ", [%s]", orc_arm64_reg_name(Rn, bits));
+      }
+      break;
+    case 3: /** pre-index */
+      snprintf (opt_rn, ARM64_MAX_OP_LEN, ", [%s, #%d]!", orc_arm64_reg_name(Rn, bits), imm);
+      break;
+    default:
+      ORC_COMPILER_ERROR(p, "unsupported variant %d\n", opt);
+      return;
+  }
+
+  if (bits == ORC_ARM64_REG_64) {
+    imm /= 8;
+  } else {
+    imm /= 4;
+  }
+
+  if (imm < -64 || imm > 63) {
+    ORC_COMPILER_ERROR(p, "imm is Out-of-range\n");
+    return;
+  }
+
+  code = arm64_code_mem_pair (bits, opt, opcode, imm, Rt2, Rn, Rt);
+
+  ORC_ASM_CODE(p, "  %s %s, %s%s\n",
+      insn_names[opcode],
+      orc_arm64_reg_name(Rt, bits),
+      orc_arm64_reg_name(Rt2, bits),
+      opt_rn);
 
   orc_arm_emit (p, code);
 }

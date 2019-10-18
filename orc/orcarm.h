@@ -422,6 +422,8 @@ ORC_API void orc_arm64_emit_extr (OrcCompiler *p, OrcArm64RegBits bits,
     int Rd, int Rn, int Rm, orc_uint32 imm);
 ORC_API void orc_arm64_emit_mem (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64Mem opcode,
     OrcArm64Type type, int opt, int Rt, int Rn, int Rm, orc_uint64 val);
+ORC_API void orc_arm64_emit_mem_pair (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64Mem opcode,
+    int opt, int Rt, int Rt2, int Rn, orc_int32 imm);
 ORC_API void orc_arm64_emit_ret (OrcCompiler *p, int Rn);
 /** @todo add arm64-specific helper functions if needed */
 
@@ -830,6 +832,24 @@ ORC_API void orc_arm64_emit_ret (OrcCompiler *p, int Rn);
   orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_LDR,ORC_ARM64_TYPE_EXT,ORC_ARM64_EXTEND_SXTW,Rt,Rn,Rm,imm)
 #define orc_arm64_emit_load_sxtx(p,b,Rt,Rn,Rm,imm) \
   orc_arm64_emit_mem(p,b,ORC_ARM64_MEM_LDR,ORC_ARM64_TYPE_EXT,ORC_ARM64_EXTEND_SXTX,Rt,Rn,Rm,imm)
+
+/** memory access instructions (pair) */
+
+/** ORC_ARM64_MEM_STR */
+#define orc_arm64_emit_store_pair_reg(p,b,Rt,Rt2,Rn,imm) \
+  orc_arm64_emit_mem_pair(p,b,ORC_ARM64_MEM_STR,2,Rt,Rt2,Rn,imm)
+#define orc_arm64_emit_store_pair_pre(p,b,Rt,Rt2,Rn,imm) \
+  orc_arm64_emit_mem_pair(p,b,ORC_ARM64_MEM_STR,3,Rt,Rt2,Rn,imm)
+#define orc_arm64_emit_store_pair_post(p,b,Rt,Rt2,Rn,imm) \
+  orc_arm64_emit_mem_pair(p,b,ORC_ARM64_MEM_STR,1,Rt,Rt2,Rn,imm)
+
+/** ORC_ARM64_MEM_LDR */
+#define orc_arm64_emit_load_pair_reg(p,b,Rt,Rt2,Rn,imm) \
+  orc_arm64_emit_mem_pair(p,b,ORC_ARM64_MEM_LDR,2,Rt,Rt2,Rn,imm)
+#define orc_arm64_emit_load_pair_pre(p,b,Rt,Rt2,Rn,imm) \
+  orc_arm64_emit_mem_pair(p,b,ORC_ARM64_MEM_LDR,3,Rt,Rt2,Rn,imm)
+#define orc_arm64_emit_load_pair_post(p,b,Rt,Rt2,Rn,imm) \
+  orc_arm64_emit_mem_pair(p,b,ORC_ARM64_MEM_LDR,1,Rt,Rt2,Rn,imm)
 
 #endif
 
