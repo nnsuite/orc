@@ -94,7 +94,7 @@ typedef enum {
   ORC_ARM64_DP_SUBS, /** alias of CMP */
   /** logical */
   ORC_ARM64_DP_AND,
-  ORC_ARM64_DP_ORR,
+  ORC_ARM64_DP_ORR,  /** alias of MOV */
   ORC_ARM64_DP_EOR,
   ORC_ARM64_DP_ANDS, /** alias of TST */
   /** shift */
@@ -414,6 +414,8 @@ ORC_API void orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP
     OrcArm64Type type, int opt, int Rd, int Rn, int Rm, orc_uint64 val);
 ORC_API void orc_arm64_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
     OrcArm64Type type, int opt, int Rd, int Rn, int Rm, orc_uint64 val);
+ORC_API void orc_arm64_emit_mov_wide (OrcCompiler *p, OrcArm64RegBits bits, int mov_op, int hw,
+    int Rd, orc_uint64 val);
 ORC_API void orc_arm64_emit_sft (OrcCompiler *p, OrcArm64RegBits bits, OrcArmShift shift,
     int Rd, int Rn, int Rm, orc_uint64 val);
 ORC_API void orc_arm64_emit_bfm (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
@@ -676,6 +678,22 @@ ORC_API void orc_arm64_emit_ret (OrcCompiler *p, int Rn);
   orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTW,Rd,Rn,Rm,val)
 #define orc_arm64_emit_orr_sxtx(p,bits,Rd,Rn,Rm,val) \
   orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_EXT,ORC_ARM64_SXTX,Rd,Rn,Rm,val)
+
+/** ORC_ARM64_DP_MOV (alias of ROR, in case of imm) */
+#define orc_arm64_emit_mov_imm(p,bits,Rd,imm) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_IMM,0,Rd,0,0,imm)
+#define orc_arm64_emit_mov_uimm(p,bits,Rd,imm) \
+  orc_arm64_emit_movz(p,bits,0,Rd,imm)
+#define orc_arm64_emit_movn(p,bits,shift,Rd,imm) \
+  orc_arm64_emit_mov_wide(p,bits,0,shift,Rd,imm)
+#define orc_arm64_emit_movz(p,bits,shift,Rd,imm) \
+  orc_arm64_emit_mov_wide(p,bits,2,shift,Rd,imm)
+#define orc_arm64_emit_movk(p,bits,shift,Rd,imm) \
+  orc_arm64_emit_mov_wide(p,bits,3,shift,Rd,imm)
+
+/** ORC_ARM64_TYPE_REG */
+#define orc_arm64_emit_mov(p,bits,Rd,Rm) \
+  orc_arm64_emit_lg(p,bits,ORC_ARM64_DP_ORR,ORC_ARM64_TYPE_REG,0,Rd,0,Rm,0)
 
 /** ORC_ARM64_DP_EOR */
 /** ORC_ARM64_TYPE_IMM */
