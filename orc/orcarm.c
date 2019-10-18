@@ -1502,7 +1502,7 @@ orc_arm64_emit_sft (OrcCompiler *p, OrcArm64RegBits bits, OrcArmShift shift,
  * Note that Bitfiled Move is usually accessed via one of its aliases
  */
 
-#define arm64_code_bfm(b,opcode,immr,imms,Rn,Rd) (0x19000000 | ((((b)==64)&0x1)<<31) | \
+#define arm64_code_bfm(b,opcode,immr,imms,Rn,Rd) (0x13000000 | ((((b)==64)&0x1)<<31) | \
     (((opcode)&0x3)<<29) | ((((b)==64)&0x1)<<22) | (((immr)&0x3f)<<16) | (((imms)&0x3f)<<10) | \
     (((Rn)&0x1f)<<5) | ((Rd)&0x1f))
 
