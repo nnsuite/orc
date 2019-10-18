@@ -775,7 +775,7 @@ ORC_API void orc_arm64_emit_ret (OrcCompiler *p, int Rn);
 #define orc_arm64_emit_lsr_imm(p,bits,Rd,Rn,imm) \
   orc_arm64_emit_bfm(p,bits,ORC_ARM64_DP_UBFM,Rd,Rn,imm,0x1f)
 #define orc_arm64_emit_asr_imm(p,bits,Rd,Rn,imm) \
-  orc_arm64_emit_bfm(p,bits,ORC_ARM64_DP_ORC_ARM64_DP_SBFM,Rd,Rn,imm,0x1f)
+  orc_arm64_emit_bfm(p,bits,ORC_ARM64_DP_SBFM,Rd,Rn,imm,0x1f)
 #define orc_arm64_emit_ror_imm(p,bits,Rd,Rn,imm) \
   orc_arm64_emit_extr(p,bits,Rd,Rn,Rn,imm)
 /** ORC_ARM64_TYPE_REG */
