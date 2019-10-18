@@ -910,7 +910,7 @@ orc_arm_loadw (OrcCompiler *compiler, int dest, int src1, int offset)
  *    3                   2                   1
  *  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |b|op |1 0 0 0 1|1 E|          imm12        |    Rn   |    Rd   |
+ * |b|op |1 0 0 0 1|sft|          imm12        |    Rn   |    Rd   |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  * Shifted register
@@ -928,8 +928,8 @@ orc_arm_loadw (OrcCompiler *compiler, int dest, int src1, int offset)
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-#define arm64_code_arith_imm(b,op,E,imm,Rn,Rd) (0x11800000 | \
-    ((((b)==64)&0x1)<<31) | (((op)&0x3)<<29) | (((E)&0x1)<<22) | \
+#define arm64_code_arith_imm(b,op,sft,imm,Rn,Rd) (0x11000000 | \
+    ((((b)==64)&0x1)<<31) | (((op)&0x3)<<29) | (((sft)&0x3)<<22) | \
     (((imm)&0xfff)<<10) | (((Rn)&0x1f)<<5)  | ((Rd)&0x1f))
 
 #define arm64_code_arith_reg(b,op,sft,Rm,imm,Rn,Rd) (0x0b000000 | \
@@ -1001,7 +1001,10 @@ orc_arm64_emit_am (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
         shift = 1;
       }
 
-      snprintf (opt_rm, ARM64_MAX_OP_LEN, ", #0x%08x", imm);
+      if (shift)
+        snprintf (opt_rm, ARM64_MAX_OP_LEN, ", #%u, lsl #12", imm);
+      else
+        snprintf (opt_rm, ARM64_MAX_OP_LEN, ", #%u", imm);
 
       code = arm64_code_arith_imm (bits, opcode, shift, imm, Rn, Rd);
       break;
