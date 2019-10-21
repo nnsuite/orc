@@ -311,28 +311,16 @@ orc_arm_do_fixups (OrcCompiler *compiler)
       code = ORC_READ_UINT32_LE (ptr);
       diff = code;
       if (compiler->is_64bit) {
-        /** first check it's conditional or unconditioanl */
-        switch (code >> 26) {
-          case 0b000101:    /** unconditional */
-            diff = (diff << 6) >> 6;
-            diff += ((label - ptr) >> 2);   /** time 4 */
-            if (diff != (diff << 6)>>6) {
-              ORC_COMPILER_ERROR(compiler, "fixup out of range");
-            }
-            diff <<= 5;     /** for cond */
-            ORC_WRITE_UINT32_LE(ptr, (code&0xff00001f) | (diff&0x00ffffe0));
-            break;
-          case 0b010101:    /** conditional */
-            diff = (diff << 8) >> 8;
-            diff += ((label - ptr) >> 2);
-            if (diff != (diff << 8)>>8) {
-              ORC_COMPILER_ERROR(compiler, "fixup out of range");
-            }
-            ORC_WRITE_UINT32_LE(ptr, (code&0xfc000000) | (diff&0x03ffffff));
-            break;
-          default:
-            ORC_COMPILER_ERROR(compiler, "wrong branch opcode");
-            break;
+        diff = ((label - ptr) >> 2);   /** time 4 */
+        if (diff != (diff << 6)>>6) {
+          ORC_COMPILER_ERROR(compiler, "fixup out of range");
+        }
+        /** check whether it's conditional or unconditioanl */
+        if (code & 0x40000000) {
+          diff <<= 5;     /** for cond */
+          ORC_WRITE_UINT32_LE(ptr, (code&0xff00001f) | (diff&0x00ffffe0));
+        } else {
+          ORC_WRITE_UINT32_LE(ptr, (code&0xfc000000) | (diff&0x03ffffff));
         }
       } else {
         diff = (diff << 8) >> 8;
