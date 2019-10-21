@@ -1191,7 +1191,7 @@ encode_logical_imm (int size, orc_uint64 val)
   /** encode N:immr:imms */
   immr = (size - I) & (size - 1);
   imms = ~(size-1) << 1;
-  imms = (CTO-1);
+  imms |= (CTO-1);
   N = ((imms >> 6) & 1) ^ 1;
 
   encoded = (N << 12) | (immr << 6) | (imms & 0x3f);
