@@ -1221,6 +1221,8 @@ orc_arm64_emit_lg (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64DP opcode,
   int alias_rd, alias_rn;
   char opt_rm[ARM64_MAX_OP_LEN];
 
+  opcode -= ORC_ARM64_DP_AND;
+
   if (opcode >= sizeof(insn_names)/sizeof(insn_names[0])) {
     ORC_COMPILER_ERROR(p, "unsupported opcode %d", opcode);
     return;
