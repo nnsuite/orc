@@ -321,6 +321,30 @@ orc_neon_emit_binary (OrcCompiler *p, const char *name, unsigned int code,
   orc_arm_emit (p, code);
 }
 
+static void
+orc_neon64_emit_binary (OrcCompiler *p, const char *name, unsigned int code,
+    OrcVariable dest, OrcVariable src1, OrcVariable src2, int vec_shift)
+{
+  int is_quad = 0;
+
+  if (p->insn_shift == vec_shift + 1) {
+    is_quad = 1;
+  } else if (p->insn_shift > vec_shift + 1) {
+    ORC_COMPILER_ERROR(p, "out-of-shift");
+    return;
+  }
+
+  ORC_ASM_CODE(p,"  %s %s, %s, %s\n", name,
+      orc_neon64_reg_name_vector (dest.alloc, dest.size, is_quad),
+      orc_neon64_reg_name_vector (src1.alloc, src1.size, is_quad),
+      orc_neon64_reg_name_vector (src2.alloc, src2.size, is_quad));
+  code |= (is_quad&0x1)<<30;
+  code |= (src2.alloc&0x1f)<<16;
+  code |= (src1.alloc&0x1f)<<5;
+  code |= (dest.alloc&0x1f);
+  orc_arm_emit (p, code);
+}
+
 #define NEON_BINARY(code,a,b,c) \
   ((code) | \
    (((a)&0xf)<<12) | \
@@ -1765,7 +1789,7 @@ orc_neon_emit_loadpq (OrcCompiler *compiler, int dest, int param)
   orc_arm_emit (compiler, code);
 }
 
-#define UNARY(opcode,insn_name,code,vec_shift) \
+#define UNARY(opcode,insn_name,code,insn_name64,code64,vec_shift) \
 static void \
 orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
 { \
@@ -1782,7 +1806,7 @@ orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
   } \
 }
 
-#define UNARY_LONG(opcode,insn_name,code,vec_shift) \
+#define UNARY_LONG(opcode,insn_name,code,insn_name64,code64,vec_shift) \
 static void \
 orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
 { \
@@ -1795,7 +1819,7 @@ orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
   } \
 }
 
-#define UNARY_NARROW(opcode,insn_name,code,vec_shift) \
+#define UNARY_NARROW(opcode,insn_name,code,insn_name64,code64,vec_shift) \
 static void \
 orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
 { \
@@ -1808,26 +1832,37 @@ orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
   } \
 }
 
-#define BINARY(opcode,insn_name,code,vec_shift) \
+#define BINARY(opcode,insn_name,code,insn_name64,code64,vec_shift) \
 static void \
 orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
 { \
-  if (p->insn_shift <= vec_shift) { \
-    orc_neon_emit_binary (p, insn_name, code, \
-        p->vars[insn->dest_args[0]].alloc, \
-        p->vars[insn->src_args[0]].alloc, \
-        p->vars[insn->src_args[1]].alloc); \
-  } else if (p->insn_shift == vec_shift + 1) { \
-    orc_neon_emit_binary_quad (p, insn_name, code, \
-        p->vars[insn->dest_args[0]].alloc, \
-        p->vars[insn->src_args[0]].alloc, \
-        p->vars[insn->src_args[1]].alloc); \
+  if (p->is_64bit) { \
+    if (insn_name64) { \
+      orc_neon64_emit_binary (p, insn_name64, code64, \
+          p->vars[insn->dest_args[0]], \
+          p->vars[insn->src_args[0]], \
+          p->vars[insn->src_args[1]], vec_shift); \
+    } else { \
+      ORC_COMPILER_ERROR(p, "not supported in AArch64 yet"); \
+    } \
   } else { \
-    ORC_COMPILER_ERROR(p, "shift too large"); \
+    if (p->insn_shift <= vec_shift) { \
+      orc_neon_emit_binary (p, insn_name, code, \
+          p->vars[insn->dest_args[0]].alloc, \
+          p->vars[insn->src_args[0]].alloc, \
+          p->vars[insn->src_args[1]].alloc); \
+    } else if (p->insn_shift == vec_shift + 1) { \
+      orc_neon_emit_binary_quad (p, insn_name, code, \
+          p->vars[insn->dest_args[0]].alloc, \
+          p->vars[insn->src_args[0]].alloc, \
+          p->vars[insn->src_args[1]].alloc); \
+    } else { \
+      ORC_COMPILER_ERROR(p, "shift too large"); \
+    } \
   } \
 }
 
-#define BINARY_LONG(opcode,insn_name,code,vec_shift) \
+#define BINARY_LONG(opcode,insn_name,code,insn_name64,code64,vec_shift) \
 static void \
 orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
 { \
@@ -1841,7 +1876,7 @@ orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
   } \
 }
 
-#define BINARY_NARROW(opcode,insn_name,code,vec_shift) \
+#define BINARY_NARROW(opcode,insn_name,code,insn_name64,code64,vec_shift) \
 static void \
 orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
 { \
@@ -1855,7 +1890,7 @@ orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
   } \
 }
 
-#define MOVE(opcode,insn_name,code,vec_shift) \
+#define MOVE(opcode,insn_name,code,insn_name64,code64,vec_shift) \
 static void \
 orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
 { \
@@ -1876,7 +1911,6 @@ orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
     ORC_COMPILER_ERROR(p, "shift too large"); \
   } \
 }
-
 
 typedef struct {
   orc_uint32 code;
@@ -2075,148 +2109,148 @@ orc_neon_rule_andn (OrcCompiler *p, void *user, OrcInstruction *insn)
 
 
 
-UNARY(absb,"vabs.s8",0xf3b10300, 3)
-BINARY(addb,"vadd.i8",0xf2000800, 3)
-BINARY(addssb,"vqadd.s8",0xf2000010, 3)
-BINARY(addusb,"vqadd.u8",0xf3000010, 3)
-BINARY(andb,"vand",0xf2000110, 3)
-/* BINARY(andnb,"vbic",0xf2100110, 3) */
-BINARY(avgsb,"vrhadd.s8",0xf2000100, 3)
-BINARY(avgub,"vrhadd.u8",0xf3000100, 3)
-BINARY(cmpeqb,"vceq.i8",0xf3000810, 3)
-BINARY(cmpgtsb,"vcgt.s8",0xf2000300, 3)
-MOVE(copyb,"vmov",0xf2200110, 3)
-BINARY(maxsb,"vmax.s8",0xf2000600, 3)
-BINARY(maxub,"vmax.u8",0xf3000600, 3)
-BINARY(minsb,"vmin.s8",0xf2000610, 3)
-BINARY(minub,"vmin.u8",0xf3000610, 3)
-BINARY(mullb,"vmul.i8",0xf2000910, 3)
-BINARY(orb,"vorr",0xf2200110, 3)
-/* LSHIFT(shlb,"vshl.i8",0xf2880510, 3) */
-/* RSHIFT(shrsb,"vshr.s8",0xf2880010,8, 3) */
-/* RSHIFT(shrub,"vshr.u8",0xf3880010,8, 3) */
-BINARY(subb,"vsub.i8",0xf3000800, 3)
-BINARY(subssb,"vqsub.s8",0xf2000210, 3)
-BINARY(subusb,"vqsub.u8",0xf3000210, 3)
-BINARY(xorb,"veor",0xf3000110, 3)
+UNARY(absb,"vabs.s8",0xf3b10300, NULL, 0, 3)
+BINARY(addb,"vadd.i8",0xf2000800, NULL, 0, 3)
+BINARY(addssb,"vqadd.s8",0xf2000010, NULL, 0, 3)
+BINARY(addusb,"vqadd.u8",0xf3000010, NULL, 0, 3)
+BINARY(andb,"vand",0xf2000110, NULL, 0, 3)
+/* BINARY(andnb,"vbic",0xf2100110, NULL, 0, 3) */
+BINARY(avgsb,"vrhadd.s8",0xf2000100, NULL, 0, 3)
+BINARY(avgub,"vrhadd.u8",0xf3000100, NULL, 0, 3)
+BINARY(cmpeqb,"vceq.i8",0xf3000810, NULL, 0, 3)
+BINARY(cmpgtsb,"vcgt.s8",0xf2000300, NULL, 0, 3)
+MOVE(copyb,"vmov",0xf2200110, NULL, 0, 3)
+BINARY(maxsb,"vmax.s8",0xf2000600, NULL, 0, 3)
+BINARY(maxub,"vmax.u8",0xf3000600, NULL, 0, 3)
+BINARY(minsb,"vmin.s8",0xf2000610, NULL, 0, 3)
+BINARY(minub,"vmin.u8",0xf3000610, NULL, 0, 3)
+BINARY(mullb,"vmul.i8",0xf2000910, NULL, 0, 3)
+BINARY(orb,"vorr",0xf2200110, NULL, 0, 3)
+/* LSHIFT(shlb,"vshl.i8",0xf2880510, NULL, 0, 3) */
+/* RSHIFT(shrsb,"vshr.s8",0xf2880010,8, NULL, 0, 3) */
+/* RSHIFT(shrub,"vshr.u8",0xf3880010,8, NULL, 0, 3) */
+BINARY(subb,"vsub.i8",0xf3000800, NULL, 0, 3)
+BINARY(subssb,"vqsub.s8",0xf2000210, NULL, 0, 3)
+BINARY(subusb,"vqsub.u8",0xf3000210, NULL, 0, 3)
+BINARY(xorb,"veor",0xf3000110, NULL, 0, 3)
 
-UNARY(absw,"vabs.s16",0xf3b50300, 2)
-BINARY(addw,"vadd.i16",0xf2100800, 2)
-BINARY(addssw,"vqadd.s16",0xf2100010, 2)
-BINARY(addusw,"vqadd.u16",0xf3100010, 2)
-BINARY(andw,"vand",0xf2000110, 2)
-/* BINARY(andnw,"vbic",0xf2100110, 2) */
-BINARY(avgsw,"vrhadd.s16",0xf2100100, 2)
-BINARY(avguw,"vrhadd.u16",0xf3100100, 2)
-BINARY(cmpeqw,"vceq.i16",0xf3100810, 2)
-BINARY(cmpgtsw,"vcgt.s16",0xf2100300, 2)
-MOVE(copyw,"vmov",0xf2200110, 2)
-BINARY(maxsw,"vmax.s16",0xf2100600, 2)
-BINARY(maxuw,"vmax.u16",0xf3100600, 2)
-BINARY(minsw,"vmin.s16",0xf2100610, 2)
-BINARY(minuw,"vmin.u16",0xf3100610, 2)
-BINARY(mullw,"vmul.i16",0xf2100910, 2)
-BINARY(orw,"vorr",0xf2200110, 2)
-/* LSHIFT(shlw,"vshl.i16",0xf2900510, 2) */
-/* RSHIFT(shrsw,"vshr.s16",0xf2900010,16, 2) */
-/* RSHIFT(shruw,"vshr.u16",0xf3900010,16, 2) */
-BINARY(subw,"vsub.i16",0xf3100800, 2)
-BINARY(subssw,"vqsub.s16",0xf2100210, 2)
-BINARY(subusw,"vqsub.u16",0xf3100210, 2)
-BINARY(xorw,"veor",0xf3000110, 2)
+UNARY(absw,"vabs.s16",0xf3b50300, NULL, 0, 2)
+BINARY(addw,"vadd.i16",0xf2100800, NULL, 0, 2)
+BINARY(addssw,"vqadd.s16",0xf2100010, NULL, 0, 2)
+BINARY(addusw,"vqadd.u16",0xf3100010, NULL, 0, 2)
+BINARY(andw,"vand",0xf2000110, NULL, 0, 2)
+/* BINARY(andnw,"vbic",0xf2100110, NULL, 0, 2) */
+BINARY(avgsw,"vrhadd.s16",0xf2100100, NULL, 0, 2)
+BINARY(avguw,"vrhadd.u16",0xf3100100, NULL, 0, 2)
+BINARY(cmpeqw,"vceq.i16",0xf3100810, NULL, 0, 2)
+BINARY(cmpgtsw,"vcgt.s16",0xf2100300, NULL, 0, 2)
+MOVE(copyw,"vmov",0xf2200110, NULL, 0, 2)
+BINARY(maxsw,"vmax.s16",0xf2100600, NULL, 0, 2)
+BINARY(maxuw,"vmax.u16",0xf3100600, NULL, 0, 2)
+BINARY(minsw,"vmin.s16",0xf2100610, NULL, 0, 2)
+BINARY(minuw,"vmin.u16",0xf3100610, NULL, 0, 2)
+BINARY(mullw,"vmul.i16",0xf2100910, NULL, 0, 2)
+BINARY(orw,"vorr",0xf2200110, NULL, 0, 2)
+/* LSHIFT(shlw,"vshl.i16",0xf2900510, NULL, 0, 2) */
+/* RSHIFT(shrsw,"vshr.s16",0xf2900010,16, NULL, 0, 2) */
+/* RSHIFT(shruw,"vshr.u16",0xf3900010,16, NULL, 0, 2) */
+BINARY(subw,"vsub.i16",0xf3100800, NULL, 0, 2)
+BINARY(subssw,"vqsub.s16",0xf2100210, NULL, 0, 2)
+BINARY(subusw,"vqsub.u16",0xf3100210, NULL, 0, 2)
+BINARY(xorw,"veor",0xf3000110, NULL, 0, 2)
 
-UNARY(absl,"vabs.s32",0xf3b90300, 1)
-BINARY(addl,"vadd.i32",0xf2200800, 1)
-BINARY(addssl,"vqadd.s32",0xf2200010, 1)
-BINARY(addusl,"vqadd.u32",0xf3200010, 1)
-BINARY(andl,"vand",0xf2000110, 1)
-/* BINARY(andnl,"vbic",0xf2100110, 1) */
-BINARY(avgsl,"vrhadd.s32",0xf2200100, 1)
-BINARY(avgul,"vrhadd.u32",0xf3200100, 1)
-BINARY(cmpeql,"vceq.i32",0xf3200810, 1)
-BINARY(cmpgtsl,"vcgt.s32",0xf2200300, 1)
-MOVE(copyl,"vmov",0xf2200110, 1)
-BINARY(maxsl,"vmax.s32",0xf2200600, 1)
-BINARY(maxul,"vmax.u32",0xf3200600, 1)
-BINARY(minsl,"vmin.s32",0xf2200610, 1)
-BINARY(minul,"vmin.u32",0xf3200610, 1)
-BINARY(mulll,"vmul.i32",0xf2200910, 1)
-BINARY(orl,"vorr",0xf2200110, 1)
-/* LSHIFT(shll,"vshl.i32",0xf2a00510, 1) */
-/* RSHIFT(shrsl,"vshr.s32",0xf2a00010,32, 1) */
-/* RSHIFT(shrul,"vshr.u32",0xf3a00010,32, 1) */
-BINARY(subl,"vsub.i32",0xf3200800, 1)
-BINARY(subssl,"vqsub.s32",0xf2200210, 1)
-BINARY(subusl,"vqsub.u32",0xf3200210, 1)
-BINARY(xorl,"veor",0xf3000110, 1)
+UNARY(absl,"vabs.s32",0xf3b90300, NULL, 0, 1)
+BINARY(addl,"vadd.i32",0xf2200800, NULL, 0, 1)
+BINARY(addssl,"vqadd.s32",0xf2200010, NULL, 0, )
+BINARY(addusl,"vqadd.u32",0xf3200010, NULL, 0, 1)
+BINARY(andl,"vand",0xf2000110, NULL, 0, 1)
+/* BINARY(andnl,"vbic",0xf2100110, NULL, 0, 1) */
+BINARY(avgsl,"vrhadd.s32",0xf2200100, NULL, 0, 1)
+BINARY(avgul,"vrhadd.u32",0xf3200100, NULL, 0, 1)
+BINARY(cmpeql,"vceq.i32",0xf3200810, NULL, 0, 1)
+BINARY(cmpgtsl,"vcgt.s32",0xf2200300, NULL, 0, 1)
+MOVE(copyl,"vmov",0xf2200110, NULL, 0, 1)
+BINARY(maxsl,"vmax.s32",0xf2200600, NULL, 0, 1)
+BINARY(maxul,"vmax.u32",0xf3200600, NULL, 0, 1)
+BINARY(minsl,"vmin.s32",0xf2200610, NULL, 0, 1)
+BINARY(minul,"vmin.u32",0xf3200610, NULL, 0, 1)
+BINARY(mulll,"vmul.i32",0xf2200910, NULL, 0, 1)
+BINARY(orl,"vorr",0xf2200110, NULL, 0, 1)
+/* LSHIFT(shll,"vshl.i32",0xf2a00510, NULL, 0, 1) */
+/* RSHIFT(shrsl,"vshr.s32",0xf2a00010,32, NULL, 0, 1) */
+/* RSHIFT(shrul,"vshr.u32",0xf3a00010,32, NULL, 0, 1) */
+BINARY(subl,"vsub.i32",0xf3200800, NULL, 0, 1)
+BINARY(subssl,"vqsub.s32",0xf2200210, NULL, 0, 1)
+BINARY(subusl,"vqsub.u32",0xf3200210, NULL, 0, 1)
+BINARY(xorl,"veor",0xf3000110, NULL, 0, 1)
 
-/* UNARY(absq,"vabs.s64",0xf3b10300, 0) */
-BINARY(addq,"vadd.i64",0xf2300800, 0)
-/* BINARY(addssq,"vqadd.s64",0xf2000010, 0) */
-/* BINARY(addusq,"vqadd.u64",0xf3000010, 0) */
-BINARY(andq,"vand",0xf2000110, 0)
-/* BINARY(avgsq,"vrhadd.s64",0xf2000100, 0) */
-/* BINARY(avguq,"vrhadd.u64",0xf3000100, 0) */
-/* BINARY(cmpeqq,"vceq.i64",0xf3000810, 0) */
-/* BINARY(cmpgtsq,"vcgt.s64",0xf2000300, 0) */
-MOVE(copyq,"vmov",0xf2200110, 0)
-/* BINARY(maxsq,"vmax.s64",0xf2000600, 0) */
-/* BINARY(maxuq,"vmax.u64",0xf3000600, 0) */
-/* BINARY(minsq,"vmin.s64",0xf2000610, 0) */
-/* BINARY(minuq,"vmin.u64",0xf3000610, 0) */
-/* BINARY(mullq,"vmul.i64",0xf2000910, 0) */
-BINARY(orq,"vorr",0xf2200110, 0)
-BINARY(subq,"vsub.i64",0xf3300800, 0)
-/* BINARY(subssq,"vqsub.s64",0xf2000210, 0) */
-/* BINARY(subusq,"vqsub.u64",0xf3000210, 0) */
-BINARY(xorq,"veor",0xf3000110, 0)
+/* UNARY(absq,"vabs.s64",0xf3b10300, NULL, 0, 0) */
+BINARY(addq,"vadd.i64",0xf2300800, NULL, 0, 0)
+/* BINARY(addssq,"vqadd.s64",0xf2000010, NULL, 0, 0) */
+/* BINARY(addusq,"vqadd.u64",0xf3000010, NULL, 0, 0) */
+BINARY(andq,"vand",0xf2000110, NULL, 0, 0)
+/* BINARY(avgsq,"vrhadd.s64",0xf2000100, NULL, 0, 0) */
+/* BINARY(avguq,"vrhadd.u64",0xf3000100, NULL, 0, 0) */
+/* BINARY(cmpeqq,"vceq.i64",0xf3000810, NULL, 0, 0) */
+/* BINARY(cmpgtsq,"vcgt.s64",0xf2000300, NULL, 0, 0) */
+MOVE(copyq,"vmov",0xf2200110, NULL, 0, 0)
+/* BINARY(maxsq,"vmax.s64",0xf2000600, NULL, 0, 0) */
+/* BINARY(maxuq,"vmax.u64",0xf3000600, NULL, 0, 0) */
+/* BINARY(minsq,"vmin.s64",0xf2000610, NULL, 0, 0) */
+/* BINARY(minuq,"vmin.u64",0xf3000610, NULL, 0, 0) */
+/* BINARY(mullq,"vmul.i64",0xf2000910, NULL, 0, 0) */
+BINARY(orq,"vorr",0xf2200110, NULL, 0, 0)
+BINARY(subq,"vsub.i64",0xf3300800, NULL, 0, 0)
+/* BINARY(subssq,"vqsub.s64",0xf2000210, NULL, 0, 0) */
+/* BINARY(subusq,"vqsub.u64",0xf3000210, NULL, 0, 0) */
+BINARY(xorq,"veor",0xf3000110, NULL, 0, 0)
 
-UNARY_LONG(convsbw,"vmovl.s8",0xf2880a10, 3)
-UNARY_LONG(convubw,"vmovl.u8",0xf3880a10, 3)
-UNARY_LONG(convswl,"vmovl.s16",0xf2900a10, 2)
-UNARY_LONG(convuwl,"vmovl.u16",0xf3900a10, 2)
-UNARY_LONG(convslq,"vmovl.s32",0xf2a00a10, 1)
-UNARY_LONG(convulq,"vmovl.u32",0xf3a00a10, 1)
-UNARY_NARROW(convwb,"vmovn.i16",0xf3b20200, 3)
-UNARY_NARROW(convssswb,"vqmovn.s16",0xf3b20280, 3)
-UNARY_NARROW(convsuswb,"vqmovun.s16",0xf3b20240, 3)
-UNARY_NARROW(convuuswb,"vqmovn.u16",0xf3b202c0, 3)
-UNARY_NARROW(convlw,"vmovn.i32",0xf3b60200, 2)
-UNARY_NARROW(convql,"vmovn.i64",0xf3ba0200, 1)
-UNARY_NARROW(convssslw,"vqmovn.s32",0xf3b60280, 2)
-UNARY_NARROW(convsuslw,"vqmovun.s32",0xf3b60240, 2)
-UNARY_NARROW(convuuslw,"vqmovn.u32",0xf3b602c0, 2)
-UNARY_NARROW(convsssql,"vqmovn.s64",0xf3ba0280, 1)
-UNARY_NARROW(convsusql,"vqmovun.s64",0xf3ba0240, 1)
-UNARY_NARROW(convuusql,"vqmovn.u64",0xf3ba02c0, 1)
+UNARY_LONG(convsbw,"vmovl.s8",0xf2880a10, NULL, 0, 3)
+UNARY_LONG(convubw,"vmovl.u8",0xf3880a10, NULL, 0, 3)
+UNARY_LONG(convswl,"vmovl.s16",0xf2900a10, NULL, 0, 2)
+UNARY_LONG(convuwl,"vmovl.u16",0xf3900a10, NULL, 0, 2)
+UNARY_LONG(convslq,"vmovl.s32",0xf2a00a10, NULL, 0, 1)
+UNARY_LONG(convulq,"vmovl.u32",0xf3a00a10, NULL, 0, 1)
+UNARY_NARROW(convwb,"vmovn.i16",0xf3b20200, NULL, 0, 3)
+UNARY_NARROW(convssswb,"vqmovn.s16",0xf3b20280, NULL, 0, 3)
+UNARY_NARROW(convsuswb,"vqmovun.s16",0xf3b20240, NULL, 0, 3)
+UNARY_NARROW(convuuswb,"vqmovn.u16",0xf3b202c0, NULL, 0, 3)
+UNARY_NARROW(convlw,"vmovn.i32",0xf3b60200, NULL, 0, 2)
+UNARY_NARROW(convql,"vmovn.i64",0xf3ba0200, NULL, 0, 1)
+UNARY_NARROW(convssslw,"vqmovn.s32",0xf3b60280, NULL, 0, 2)
+UNARY_NARROW(convsuslw,"vqmovun.s32",0xf3b60240, NULL, 0, 2)
+UNARY_NARROW(convuuslw,"vqmovn.u32",0xf3b602c0, NULL, 0, 2)
+UNARY_NARROW(convsssql,"vqmovn.s64",0xf3ba0280, NULL, 0, 1)
+UNARY_NARROW(convsusql,"vqmovun.s64",0xf3ba0240, NULL, 0, 1)
+UNARY_NARROW(convuusql,"vqmovn.u64",0xf3ba02c0, NULL, 0, 1)
 
-BINARY_LONG(mulsbw,"vmull.s8",0xf2800c00, 3)
-BINARY_LONG(mulubw,"vmull.u8",0xf3800c00, 3)
-BINARY_LONG(mulswl,"vmull.s16",0xf2900c00, 2)
-BINARY_LONG(muluwl,"vmull.u16",0xf3900c00, 2)
+BINARY_LONG(mulsbw,"vmull.s8",0xf2800c00, NULL, 0, 3)
+BINARY_LONG(mulubw,"vmull.u8",0xf3800c00, NULL, 0, 3)
+BINARY_LONG(mulswl,"vmull.s16",0xf2900c00, NULL, 0, 2)
+BINARY_LONG(muluwl,"vmull.u16",0xf3900c00, NULL, 0, 2)
 
-UNARY(swapw,"vrev16.i8",0xf3b00100, 2)
-UNARY(swapl,"vrev32.i8",0xf3b00080, 1)
-UNARY(swapq,"vrev64.i8",0xf3b00000, 0)
-UNARY(swapwl,"vrev32.i16",0xf3b40080, 1)
-UNARY(swaplq,"vrev64.i32",0xf3b80000, 0)
+UNARY(swapw,"vrev16.i8",0xf3b00100, NULL, 0, 2)
+UNARY(swapl,"vrev32.i8",0xf3b00080, NULL, 0, 1)
+UNARY(swapq,"vrev64.i8",0xf3b00000, NULL, 0, 0)
+UNARY(swapwl,"vrev32.i16",0xf3b40080, NULL, 0, 1)
+UNARY(swaplq,"vrev64.i32",0xf3b80000, NULL, 0, 0)
 
-UNARY_NARROW(select0ql,"vmovn.i64",0xf3ba0200, 1)
-UNARY_NARROW(select0lw,"vmovn.i32",0xf3b60200, 2)
-UNARY_NARROW(select0wb,"vmovn.i16",0xf3b20200, 3)
+UNARY_NARROW(select0ql,"vmovn.i64",0xf3ba0200, NULL, 0, 1)
+UNARY_NARROW(select0lw,"vmovn.i32",0xf3b60200, NULL, 0, 2)
+UNARY_NARROW(select0wb,"vmovn.i16",0xf3b20200, NULL, 0, 3)
 
-BINARY(addf,"vadd.f32",0xf2000d00, 1)
-BINARY(subf,"vsub.f32",0xf2200d00, 1)
-BINARY(mulf,"vmul.f32",0xf3000d10, 1)
-BINARY(maxf,"vmax.f32",0xf2000f00, 1)
-BINARY(minf,"vmin.f32",0xf2200f00, 1)
-BINARY(cmpeqf,"vceq.f32",0xf2000e00, 1)
-/* BINARY_R(cmpltf,"vclt.f32",0xf3200e00, 1) */
-/* BINARY_R(cmplef,"vcle.f32",0xf3000e00, 1) */
-UNARY(convfl,"vcvt.s32.f32",0xf3bb0700, 1)
-UNARY(convlf,"vcvt.f32.s32",0xf3bb0600, 1)
+BINARY(addf,"vadd.f32",0xf2000d00, NULL, 0, 1)
+BINARY(subf,"vsub.f32",0xf2200d00, NULL, 0, 1)
+BINARY(mulf,"vmul.f32",0xf3000d10, NULL, 0, 1)
+BINARY(maxf,"vmax.f32",0xf2000f00, NULL, 0, 1)
+BINARY(minf,"vmin.f32",0xf2200f00, NULL, 0, 1)
+BINARY(cmpeqf,"vceq.f32",0xf2000e00, NULL, 0, 1)
+/* BINARY_R(cmpltf,"vclt.f32",0xf3200e00, NULL, 0, 1) */
+/* BINARY_R(cmplef,"vcle.f32",0xf3000e00, NULL, 0, 1) */
+UNARY(convfl,"vcvt.s32.f32",0xf3bb0700, NULL, 0, 1)
+UNARY(convlf,"vcvt.f32.s32",0xf3bb0600, NULL, 0, 1)
 
-#define UNARY_VFP(opcode,insn_name,code,vec_shift) \
+#define UNARY_VFP(opcode,insn_name,code,insn_name64,code64,vec_shift) \
 static void \
 orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
 { \
@@ -2232,7 +2266,7 @@ orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
   } \
 }
 
-#define BINARY_VFP(opcode,insn_name,code,vec_shift) \
+#define BINARY_VFP(opcode,insn_name,code,insn_name64,code64,vec_shift) \
 static void \
 orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
 { \
@@ -2250,14 +2284,14 @@ orc_neon_rule_ ## opcode (OrcCompiler *p, void *user, OrcInstruction *insn) \
   } \
 }
 
-BINARY_VFP(addd,"vadd.f64",0xee300b00, 0)
-BINARY_VFP(subd,"vsub.f64",0xee300b40, 0)
-BINARY_VFP(muld,"vmul.f64",0xee200b00, 0)
-BINARY_VFP(divd,"vdiv.f64",0xee800b00, 0)
-UNARY_VFP(sqrtd,"vsqrt.f64",0xeeb10b00, 0)
-/* BINARY_VFP(cmpeqd,"vcmpe.f64",0xee000000, 0) */
-UNARY_VFP(convdf,"vcvt.f64.f32",0xee200b00, 0)
-UNARY_VFP(convfd,"vcvt.f32.f64",0xee200b00, 0)
+BINARY_VFP(addd,"vadd.f64",0xee300b00, NULL, 0, 0)
+BINARY_VFP(subd,"vsub.f64",0xee300b40, NULL, 0, 0)
+BINARY_VFP(muld,"vmul.f64",0xee200b00, NULL, 0, 0)
+BINARY_VFP(divd,"vdiv.f64",0xee800b00, NULL, 0, 0)
+UNARY_VFP(sqrtd,"vsqrt.f64",0xeeb10b00, NULL, 0, 0)
+/* BINARY_VFP(cmpeqd,"vcmpe.f64",0xee000000, NULL, 0, 0) */
+UNARY_VFP(convdf,"vcvt.f64.f32",0xee200b00, NULL, 0, 0)
+UNARY_VFP(convfd,"vcvt.f32.f64",0xee200b00, NULL, 0, 0)
 
 #if 1
 #define NUM_ITERS_DIVF 2
