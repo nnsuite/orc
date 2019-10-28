@@ -1737,7 +1737,7 @@ orc_arm64_emit_extr (OrcCompiler *p, OrcArm64RegBits bits,
 
 void
 orc_arm64_emit_mem (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64Mem opcode,
-    OrcArm64Type type, int opt, int Rt, int Rn, int Rm, orc_uint64 val)
+    OrcArm64Type type, int opt, int Rt, int Rn, int Rm, orc_uint32 val)
 {
   orc_uint32 code;
   orc_uint32 amount;
@@ -1771,20 +1771,30 @@ orc_arm64_emit_mem (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64Mem opcode,
         return;
       }
 
-      imm = val/4;
+      if (bits == ORC_ARM64_REG_64) {
+        imm = val/8;
+      } else {
+        imm = val/4;
+      }
+
+      if (imm > 4095) {
+        ORC_COMPILER_ERROR(p, "out-of-range immediate 0x%lx\n", val);
+        return;
+      }
+
       if (imm == 0) {
         int label = opt;
         /** resolve the actual address diff in fixup code */
         orc_arm_add_fixup (p, label, 2);
         snprintf (opt_rn, ARM64_MAX_OP_LEN, ", .L%d", label);
       } else {
-        snprintf (opt_rn, ARM64_MAX_OP_LEN, ", 0x%08x", imm);
+        snprintf (opt_rn, ARM64_MAX_OP_LEN, ", 0x%08x", val);
       }
 
       code = arm64_code_mem_literal (bits, imm, Rt);
       break;
     case ORC_ARM64_TYPE_REG:
-      imm = (orc_int32) val;
+      imm = val;
       is_signed = opt;
 
       if (is_signed) { /** signed offset */
@@ -1836,7 +1846,7 @@ orc_arm64_emit_mem (OrcCompiler *p, OrcArm64RegBits bits, OrcArm64Mem opcode,
 
       snprintf (opt_rn, ARM64_MAX_OP_LEN, ", [%s", orc_arm64_reg_name(Rn, bits));
 
-      amount = (orc_uint32) val;
+      amount = val;
       if (amount > 0) {
         if (bits == ORC_ARM64_REG_64 && amount != 3) {
           ORC_COMPILER_ERROR(p, "unsupported amount %d\n", amount);
